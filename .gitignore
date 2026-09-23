@@ -1,0 +1,5 @@
+node_modules/
+.moodle-sync/
+.moodle-profiles.json
+*.tgz
+coverage/

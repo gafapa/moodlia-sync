@@ -1,0 +1,112 @@
+services:
+  moodle45core:
+    image: erseco/alpine-moodle:v4.5.12
+    container_name: moodliaq-20260922-m45-core
+    restart: "no"
+    # Shared hosts: cap each site so an out-of-memory kill hits the lab, not production.
+    mem_limit: 768m
+    cpus: 0.75
+    labels:
+      moodlia-lab: "true"
+    environment:
+      SITE_URL: http://127.0.0.1:18450
+      MOODLE_DATABASE_TYPE: sqlite3
+      DB_TYPE: sqlite3
+      MOODLE_USERNAME: admin
+      MOODLE_PASSWORD: ${MOODLE_ADMIN_PASSWORD}
+      MOODLE_EMAIL: qualification@example.invalid
+      MOODLE_SITENAME: MoodlIA-Qualification-4.5-Core
+      MOODLE_LANGUAGE: en
+      REVERSEPROXY: "true"
+      AUTO_UPDATE_MOODLE: "true"
+    ports:
+      - "127.0.0.1:18450:8080"
+    volumes:
+      - moodle45core-data:/var/www/moodledata
+      - ./bootstrap:/qualification:ro
+
+  moodle45plugin:
+    image: erseco/alpine-moodle:v4.5.12
+    container_name: moodliaq-20260922-m45-plugin
+    restart: "no"
+    # Shared hosts: cap each site so an out-of-memory kill hits the lab, not production.
+    mem_limit: 768m
+    cpus: 0.75
+    labels:
+      moodlia-lab: "true"
+    environment:
+      SITE_URL: http://127.0.0.1:18451
+      MOODLE_DATABASE_TYPE: sqlite3
+      DB_TYPE: sqlite3
+      MOODLE_USERNAME: admin
+      MOODLE_PASSWORD: ${MOODLE_ADMIN_PASSWORD}
+      MOODLE_EMAIL: qualification@example.invalid
+      MOODLE_SITENAME: MoodlIA-Qualification-4.5-Plugin
+      MOODLE_LANGUAGE: en
+      REVERSEPROXY: "true"
+      AUTO_UPDATE_MOODLE: "true"
+    ports:
+      - "127.0.0.1:18451:8080"
+    volumes:
+      - moodle45plugin-data:/var/www/moodledata
+      - ./plugin:/var/www/html/local/moodlia:ro
+      - ./bootstrap:/qualification:ro
+
+  moodle53core:
+    image: erseco/alpine-moodle:v5.3.0-beta
+    container_name: moodliaq-20260922-m53-core
+    restart: "no"
+    # Shared hosts: cap each site so an out-of-memory kill hits the lab, not production.
+    mem_limit: 768m
+    cpus: 0.75
+    labels:
+      moodlia-lab: "true"
+    environment:
+      SITE_URL: http://127.0.0.1:18530
+      MOODLE_DATABASE_TYPE: sqlite3
+      DB_TYPE: sqlite3
+      MOODLE_USERNAME: admin
+      MOODLE_PASSWORD: ${MOODLE_ADMIN_PASSWORD}
+      MOODLE_EMAIL: qualification@example.invalid
+      MOODLE_SITENAME: MoodlIA-Qualification-5.3-Core
+      MOODLE_LANGUAGE: en
+      REVERSEPROXY: "true"
+      AUTO_UPDATE_MOODLE: "true"
+    ports:
+      - "127.0.0.1:18530:8080"
+    volumes:
+      - moodle53core-data:/var/www/moodledata
+      - ./bootstrap:/qualification:ro
+
+  moodle53plugin:
+    image: erseco/alpine-moodle:v5.3.0-beta
+    container_name: moodliaq-20260922-m53-plugin
+    restart: "no"
+    # Shared hosts: cap each site so an out-of-memory kill hits the lab, not production.
+    mem_limit: 768m
+    cpus: 0.75
+    labels:
+      moodlia-lab: "true"
+    environment:
+      SITE_URL: http://127.0.0.1:18531
+      MOODLE_DATABASE_TYPE: sqlite3
+      DB_TYPE: sqlite3
+      MOODLE_USERNAME: admin
+      MOODLE_PASSWORD: ${MOODLE_ADMIN_PASSWORD}
+      MOODLE_EMAIL: qualification@example.invalid
+      MOODLE_SITENAME: MoodlIA-Qualification-5.3-Plugin
+      MOODLE_LANGUAGE: en
+      REVERSEPROXY: "true"
+      AUTO_UPDATE_MOODLE: "true"
+    ports:
+      - "127.0.0.1:18531:8080"
+    volumes:
+      - moodle53plugin-data:/var/www/moodledata
+      - ./plugin:/var/www/html/public/local/moodlia:ro
+      - ./bootstrap:/qualification:ro
+
+volumes:
+  moodle45core-data:
+  moodle45plugin-data:
+  moodle53core-data:
+  moodle53plugin-data:

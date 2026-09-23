@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "m45core": {
+      "url": "http://127.0.0.1:18450",
+      "backend": "core",
+      "allow_insecure": true,
+      "credentials": { "core": { "token_env": "Q_M45_CORE_TOKEN" } }
+    },
+    "m45plugin": {
+      "url": "http://127.0.0.1:18451",
+      "backend": "moodlia",
+      "allow_insecure": true,
+      "credentials": { "moodlia": { "token_env": "Q_M45_PLUGIN_TOKEN" } }
+    },
+    "m53core": {
+      "url": "http://127.0.0.1:18530",
+      "backend": "core",
+      "allow_insecure": true,
+      "credentials": { "core": { "token_env": "Q_M53_CORE_TOKEN" } }
+    },
+    "m53plugin": {
+      "url": "http://127.0.0.1:18531",
+      "backend": "moodlia",
+      "allow_insecure": true,
+      "credentials": { "moodlia": { "token_env": "Q_M53_PLUGIN_TOKEN" } }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22.13.0', '24']
+        include:
+          # The only native dependency is better-sqlite3; one arm64 job
+          # confirms its prebuilt binary installs on Apple Silicon.
+          - os: macos-latest
+            node: '24'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: moodlia-sync
+      - uses: actions/checkout@v4
+        with:
+          repository: gafapa/moodle-core-cli
+          path: moodle-core-cli
+      - uses: actions/checkout@v4
+        with:
+          repository: gafapa/moodlia-cli
+          path: moodlia-cli
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install unreleased Core
+        working-directory: moodle-core-cli
+        run: npm ci
+      - name: Install unreleased MoodlIA against local Core
+        working-directory: moodlia-cli
+        run: |
+          npm pkg set dependencies.moodle-core-cli="file:../moodle-core-cli"
+          npm install
+      - name: Install moodlia-sync against local MoodlIA
+        working-directory: moodlia-sync
+        run: |
+          npm pkg set dependencies.moodlia="file:../moodlia-cli"
+          npm install
+          npm rebuild better-sqlite3
+      - run: npm run check
+        working-directory: moodlia-sync
+      - run: npm run test:coverage
+        working-directory: moodlia-sync
+      - run: npm run pack:check
+        working-directory: moodlia-sync
+      - run: npm audit --audit-level=high
+        working-directory: moodlia-sync

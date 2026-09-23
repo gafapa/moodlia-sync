@@ -1,0 +1,78 @@
+{
+  "name": "moodlia-sync",
+  "version": "0.1.0",
+  "description": "Plan, approve, apply, and verify Moodle course synchronization between sites without backups.",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "author": "Pablo Gallego",
+  "homepage": "https://moodlia.com/products/sync",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gafapa/moodlia-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gafapa/moodlia-sync/issues"
+  },
+  "main": "./sync/index.mjs",
+  "types": "./sync/index.d.ts",
+  "sideEffects": false,
+  "bin": {
+    "moodlia-sync": "cli/moodlia-sync.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./sync/index.d.ts",
+      "import": "./sync/index.mjs"
+    },
+    "./adapters": {
+      "types": "./adapters/index.d.ts",
+      "import": "./adapters/index.mjs"
+    },
+    "./adaptive": {
+      "types": "./adaptive/index.d.ts",
+      "import": "./adaptive/index.mjs"
+    },
+    "./cli-runner": {
+      "types": "./cli/runner.d.ts",
+      "import": "./cli/runner.mjs"
+    }
+  },
+  "files": [
+    "adapters/",
+    "adaptive/",
+    "cli/",
+    "sync/",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=81 --test-coverage-include=sync/** --test-coverage-include=adapters/** --test-coverage-include=adaptive/** --test-coverage-include=cli/** tests/*.test.mjs",
+    "types:compile": "tsc --noEmit --skipLibCheck false --moduleResolution nodenext --module nodenext --target es2022 sync/index.d.ts adapters/index.d.ts adaptive/index.d.ts cli/runner.d.ts",
+    "check": "node --check cli/moodlia-sync.mjs && node --check cli/runner.mjs && npm run types:compile && npm test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "moodle",
+    "moodlia",
+    "synchronization",
+    "sync",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.4.1",
+    "moodlia": "^0.4.0",
+    "parse5": "^8.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}
