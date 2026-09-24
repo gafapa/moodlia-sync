@@ -52,6 +52,29 @@ function failedActionDetails(args, stderr) {
   }
 }
 
+// Exports both courses twice when apply reports drift, so the evidence shows which fields move.
+async function recordDrift(scenario, sourceCourseId, targetCourseId, planPath) {
+  const profiles = JSON.parse(fs.readFileSync(profilesPath, 'utf8')).profiles;
+  const adapterFor = (name) => {
+    const profile = structuredClone(profiles[name]);
+    for (const credential of Object.values(profile.credentials)) {
+      credential.token = tokenEnvironment[credential.token_env];
+      delete credential.token_env;
+    }
+    return createSyncSiteAdapter({ profile: { name, ...profile }, moodliaContract: contract });
+  };
+  const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+  const exports = {};
+  for (const [role, name, courseId] of [['source', scenario.source, sourceCourseId], ['target', scenario.target, targetCourseId]]) {
+    const adapter = adapterFor(name);
+    const first = await adapter.exportCourse(courseId);
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    const second = await adapter.exportCourse(courseId);
+    exports[role] = { planned_digest: plan[role].digest, digests: [first.digest, second.digest], models: [first, second] };
+  }
+  fs.writeFileSync(path.join(results, `${runId}-${scenario.name}-drift.json`), redact(JSON.stringify(exports, null, 2)), { mode: 0o600 });
+}
+
 function invoke(name, phase, args, allowedStatuses = [0]) {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: runner,
@@ -140,12 +163,19 @@ for (const scenario of scenarios) {
   assert.equal(forbiddenAction, undefined, `${scenario.name} must not use backup or copy actions`);
 
   if (!job) invoke(scenario.name, 'approve', ['approve', planPath, '--yes', ...common]);
-  job ??= invoke(scenario.name, 'apply', [
+  try {
+    job ??= invoke(scenario.name, 'apply', [
       'apply', planPath,
       '--plan-digest', plan.digest,
       '--allow-write',
       ...common
     ]);
+  } catch (error) {
+    if (/changed after the sync plan/.test(error.message)) {
+      await recordDrift(scenario, source.source_course_id, targetCourseId, planPath);
+    }
+    throw error;
+  }
   assert.equal(job.status, 'succeeded', `${scenario.name} apply must succeed`);
   assert.ok(job.verification, `${scenario.name} must record verification evidence`);
 
