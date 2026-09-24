@@ -390,7 +390,23 @@ async function assignmentAuthoring(client, assignment, gradingForm) {
   };
 }
 
+function releaseAtLeast(release, minimum) {
+  const parts = (value) => String(value ?? '').split(/[.+-]/).map((part) => Number.parseInt(part, 10) || 0);
+  const [left, right] = [parts(release), parts(minimum)];
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    if ((left[index] ?? 0) !== (right[index] ?? 0)) return (left[index] ?? 0) > (right[index] ?? 0);
+  }
+  return true;
+}
+
 export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
+  groupFields() {
+    // Plugin 0.1.215 added group visibility and participation.
+    return releaseAtLeast(this.discovery?.plugin_release, '0.1.215')
+      ? ['name', 'description', 'idnumber', 'visibility', 'participation']
+      : ['name', 'description', 'idnumber'];
+  }
+
   async exportCourse(courseId) {
     const site = this.discovery ?? await this.discoverSite();
     const [course, contents, groupsResult, groupingsResult, assignmentsResult, completionResult,
@@ -997,11 +1013,11 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       },
       group_create: {
         available: this.hasDeclaredOperation('create_group') && groupWriteAllowed,
-        supported_fields: ['name', 'description', 'idnumber']
+        supported_fields: this.groupFields()
       },
       group_update: {
         available: this.hasDeclaredOperation('update_group') && groupWriteAllowed,
-        supported_fields: ['name', 'description', 'idnumber']
+        supported_fields: this.groupFields()
       },
       grouping_create: {
         available: this.hasDeclaredOperation('create_grouping') && groupWriteAllowed,

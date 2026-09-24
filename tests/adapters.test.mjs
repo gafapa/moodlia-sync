@@ -793,3 +793,39 @@ test('gradebook actions resolve newly created activity grade items', async () =>
   assert.equal(operations[2].parameters.item_id, 700);
   assert.equal(operations[2].parameters.grade_pass, 80);
 });
+
+test('group visibility compares by name across Core numbers and MoodlIA names', async () => {
+  const { createCourseSyncModel, normalizeGroupVisibility } = await import('../sync/model.mjs');
+  assert.equal(normalizeGroupVisibility(1), 'members');
+  assert.equal(normalizeGroupVisibility('3'), 'none');
+  assert.equal(normalizeGroupVisibility('own'), 'own');
+  assert.equal(normalizeGroupVisibility(null), null);
+  const site = { provider: 'core', functions: [], operations: [] };
+  const course = { id: 1, fullname: 'C', shortname: 'C' };
+  const fromCore = createCourseSyncModel({ site, course, groups: [{ id: 5, name: 'G', visibility: 1, participation: 1 }] });
+  const fromPlugin = createCourseSyncModel({ site, course, groups: [{ group_id: 5, name: 'G', visibility: 'members', participation: true }] });
+  assert.deepEqual(fromCore.groups[0].visibility, fromPlugin.groups[0].visibility);
+  assert.equal(fromCore.groups[0].participation, true);
+});
+
+test('Core applies named group visibility as the Moodle constant', async () => {
+  const { createCoreSyncAdapter } = await import('../adapters/core-sync.mjs');
+  const calls = [];
+  const adapter = createCoreSyncAdapter({
+    client: { callOperation: async (name, parameters) => { calls.push({ name, parameters }); return { id: 9 }; } }
+  });
+  await adapter.applySyncAction({ kind: 'group.create', fields: { name: 'G', visibility: 'own', participation: false } }, { courseId: 3 });
+  await adapter.applySyncAction({ kind: 'group.update', target_id: 9, fields: { visibility: 'members' } }, { courseId: 3 });
+  assert.deepEqual(calls.map((call) => call.parameters.visibility), [2, 1]);
+  assert.equal(calls[0].parameters.course_id, 3);
+});
+
+test('MoodlIA declares group visibility and participation only from plugin 0.1.215', () => {
+  const adapter = createMoodliaSyncAdapter({ client: { operationNames: () => [] } });
+  adapter.discovery = { plugin_release: '0.1.214' };
+  assert.deepEqual(adapter.groupFields(), ['name', 'description', 'idnumber']);
+  adapter.discovery = { plugin_release: '0.1.215' };
+  assert.ok(adapter.groupFields().includes('visibility'));
+  adapter.discovery = { plugin_release: '0.2.0' };
+  assert.ok(adapter.groupFields().includes('participation'));
+});

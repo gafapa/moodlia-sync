@@ -1,6 +1,14 @@
 import { createCourseSyncModel } from '../sync/model.mjs';
 import { CoreMoodleAdapter } from 'moodlia/core/adapters';
 
+const CORE_GROUP_VISIBILITY = { all: 0, members: 1, own: 2, none: 3 };
+
+// The sync model names group visibility; Moodle Core's web service takes 0-3.
+function coreGroupFields(fields) {
+  if (fields.visibility === undefined || fields.visibility === null) return fields;
+  return { ...fields, visibility: CORE_GROUP_VISIBILITY[fields.visibility] ?? fields.visibility };
+}
+
 function operationNames(client) {
   return new Set(client.operationNames());
 }
@@ -124,10 +132,10 @@ export class CoreSyncAdapter extends CoreMoodleAdapter {
       return this.client.callOperation('update_course', { course_id: courseId, ...action.fields });
     }
     if (action.kind === 'group.create') {
-      return this.client.callOperation('create_group', { course_id: courseId, ...action.fields });
+      return this.client.callOperation('create_group', { course_id: courseId, ...coreGroupFields(action.fields) });
     }
     if (action.kind === 'group.update') {
-      return this.client.callOperation('update_group', { group_id: action.target_id, ...action.fields });
+      return this.client.callOperation('update_group', { group_id: action.target_id, ...coreGroupFields(action.fields) });
     }
     if (action.kind === 'grouping.create') {
       return this.client.callOperation('create_grouping', { course_id: courseId, ...action.fields });

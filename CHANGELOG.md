@@ -14,4 +14,8 @@
   `moodlia-sync-mcp` coordinator.
 - A missing or mismatched `better-sqlite3` build fails with
   `dependency_unavailable` and the command that fixes it.
+- Group visibility is compared by name across providers (Core reports 0-3,
+  MoodlIA a name), Core receives the numeric constant, and MoodlIA sites with
+  plugin 0.1.215 or later synchronize group visibility and participation,
+  closing the Core-to-MoodlIA group gap found by live qualification.
 - State databases written by `moodle-core-cli` 0.3.6 open unchanged.

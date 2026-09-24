@@ -4,6 +4,15 @@ function optionalString(value) {
   return value === undefined || value === null ? null : String(value);
 }
 
+const GROUP_VISIBILITY = ['all', 'members', 'own', 'none'];
+
+// Core reports group visibility as 0-3 and MoodlIA as a name; compare names.
+export function normalizeGroupVisibility(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (GROUP_VISIBILITY.includes(String(value))) return String(value);
+  return GROUP_VISIBILITY[Number(value)] ?? null;
+}
+
 function normalizeTextFormat(value) {
   if (value === undefined || value === null || value === '') return null;
   const formats = { 0: 'moodle', 1: 'html', 2: 'plain', 4: 'markdown' };
@@ -83,8 +92,8 @@ export function createCourseSyncModel({
     name: optionalString(group.name) ?? '',
     description: optionalString(group.description) ?? '',
     idnumber: optionalString(group.idnumber),
-    visibility: group.visibility ?? null,
-    participation: group.participation ?? null
+    visibility: normalizeGroupVisibility(group.visibility),
+    participation: group.participation === undefined || group.participation === null ? null : Boolean(group.participation)
   }));
   const normalizedCourse = {
     source_id: Number(course.id ?? course.course_id ?? 0) || null,
