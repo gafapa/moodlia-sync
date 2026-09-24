@@ -25,13 +25,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: moodlia-sync
+      # Sibling repositories use the branch with this branch's name when it exists, so
+      # coordinated changes are tested together; otherwise main.
+      - name: Resolve sibling refs
+        id: refs
+        shell: bash
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          pick() {
+            if git ls-remote --exit-code --heads "https://github.com/gafapa/$1.git" "$branch" >/dev/null 2>&1; then echo "$branch"; else echo main; fi
+          }
+          echo "core=$(pick moodle-core-cli)" >> "$GITHUB_OUTPUT"
+          echo "moodlia=$(pick moodlia-cli)" >> "$GITHUB_OUTPUT"
+          echo "moodle-core-cli@$(pick moodle-core-cli), moodlia-cli@$(pick moodlia-cli)"
       - uses: actions/checkout@v4
         with:
           repository: gafapa/moodle-core-cli
+          ref: ${{ steps.refs.outputs.core }}
           path: moodle-core-cli
       - uses: actions/checkout@v4
         with:
           repository: gafapa/moodlia-cli
+          ref: ${{ steps.refs.outputs.moodlia }}
           path: moodlia-cli
       - uses: actions/setup-node@v4
         with:
