@@ -400,6 +400,22 @@ function releaseAtLeast(release, minimum) {
 }
 
 export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
+  // Moodle text format constants (or names) as the destination operations accept them.
+  textFormat(value) {
+    const formats = { 1: 'html', 2: 'plain', html: 'html', plain: 'plain' };
+    // Plugin 0.1.215 accepts every Moodle format by name.
+    if (releaseAtLeast(this.discovery?.plugin_release, '0.1.215')) {
+      Object.assign(formats, { 0: 'moodle', 4: 'markdown', moodle: 'moodle', markdown: 'markdown' });
+    }
+    return formats[value];
+  }
+
+  textFormats() {
+    return releaseAtLeast(this.discovery?.plugin_release, '0.1.215')
+      ? ['html', 'plain', 'markdown', 'moodle']
+      : ['html', 'plain'];
+  }
+
   groupFields() {
     // Plugin 0.1.215 added group visibility and participation.
     return releaseAtLeast(this.discovery?.plugin_release, '0.1.215')
@@ -1032,6 +1048,7 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
         supported_fields: ['grouping_id', 'group_id']
       },
       module_create: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('create_module') && activityWriteAllowed,
         supported_fields: ['module_type', 'name', 'visible', 'visible_on_course_page', 'settings']
       },
@@ -1052,14 +1069,17 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
         supported_fields: ['filename', 'filepath', 'filesize', 'content_hash', 'content']
       },
       page_content_update: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('update_page') && activityWriteAllowed,
         supported_fields: ['name', 'content', 'content_format', 'print_intro', 'print_last_modified']
       },
       label_content_update: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('update_label') && activityWriteAllowed,
         supported_fields: ['content', 'content_format']
       },
       url_content_update: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('update_url') && activityWriteAllowed,
         supported_fields: ['name', 'external_url', 'intro', 'intro_format', 'display', 'print_intro', 'popup_width',
           'popup_height']
@@ -1069,10 +1089,12 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
         supported_fields: ['filename', 'filepath', 'filesize', 'content_hash']
       },
       resource_asset_replace: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('update_resource') && activityWriteAllowed,
         supported_fields: ['filename', 'filepath', 'filesize', 'content_hash']
       },
       assignment_content_update: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('update_assignment') && activityWriteAllowed,
         supported_fields: ['name', 'intro', 'intro_format', 'activity', 'activity_format']
       },
@@ -1269,9 +1291,8 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       });
     }
     if (action.kind === 'page_content.update') {
-      const formats = { 1: 'html', 2: 'plain', html: 'html', plain: 'plain' };
       const fields = { ...action.fields };
-      if (fields.content_format !== undefined) fields.content_format = formats[fields.content_format];
+      if (fields.content_format !== undefined) fields.content_format = this.textFormat(fields.content_format);
       if (action.fields.content_format !== undefined && !fields.content_format) {
         throw new TypeError('Page content format cannot be represented by the destination operation.');
       }
@@ -1291,9 +1312,8 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
     if (action.kind === 'label_content.update' || action.kind === 'url_content.update') {
       const operation = action.kind === 'label_content.update' ? 'update_label' : 'update_url';
       const formatField = action.kind === 'label_content.update' ? 'content_format' : 'intro_format';
-      const formats = { 1: 'html', 2: 'plain', html: 'html', plain: 'plain' };
       const fields = { ...action.fields };
-      if (fields[formatField] !== undefined) fields[formatField] = formats[fields[formatField]];
+      if (fields[formatField] !== undefined) fields[formatField] = this.textFormat(fields[formatField]);
       if (action.fields[formatField] !== undefined && !fields[formatField]) {
         throw new TypeError(`${action.kind} format cannot be represented by the destination operation.`);
       }
@@ -1315,10 +1335,9 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       });
     }
     if (action.kind === 'assignment_content.update') {
-      const formats = { 1: 'html', 2: 'plain', html: 'html', plain: 'plain' };
       const fields = { ...action.fields };
-      if (fields.intro_format !== undefined) fields.intro_format = formats[fields.intro_format];
-      if (fields.activity_format !== undefined) fields.activity_format = formats[fields.activity_format];
+      if (fields.intro_format !== undefined) fields.intro_format = this.textFormat(fields.intro_format);
+      if (fields.activity_format !== undefined) fields.activity_format = this.textFormat(fields.activity_format);
       if ((action.fields.intro_format !== undefined && !fields.intro_format)
         || (action.fields.activity_format !== undefined && !fields.activity_format)) {
         throw new TypeError('Assignment content format cannot be represented by the destination operation.');

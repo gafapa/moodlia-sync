@@ -1,6 +1,19 @@
 # Changelog
 
-## 0.1.0 - unreleased
+## 0.1.1 - 2026-09-24
+
+- Page, Label, URL, File, and Assignment text in Markdown or Moodle auto-format
+  now synchronizes to MoodlIA targets with plugin 0.1.215 or later. Before,
+  planning reported it as `destination_format_not_representable`.
+  Capabilities declare the formats they accept in `text_formats`; targets that
+  do not declare them still accept only HTML and plain text.
+- A course update that Moodle rejects, for example because the shortname is
+  already used on the target site, now fails the action with Moodle's warning
+  (from `moodle-core-cli` 0.4.1) instead of a later `readback_mismatch`.
+- Tests: coverage is now 97% of lines, 83% of branches, and 92% of functions,
+  up from 82%, 71%, and 76%. CI enforces 95%, 80%, and 90%.
+
+## 0.1.0 - 2026-09-24
 
 - First release as a standalone package. The synchronization engine, state
   store, and synchronization adapters move here from `moodle-core-cli` 0.3.6

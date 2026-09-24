@@ -1,6 +1,6 @@
 {
   "name": "moodlia-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Plan, approve, apply, and verify Moodle course synchronization between sites without backups.",
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -48,7 +48,7 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=81 --test-coverage-include=sync/** --test-coverage-include=adapters/** --test-coverage-include=adaptive/** --test-coverage-include=cli/** tests/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=80 --test-coverage-functions=90 --test-coverage-include=sync/** --test-coverage-include=adapters/** --test-coverage-include=adaptive/** --test-coverage-include=cli/** tests/*.test.mjs",
     "types:compile": "tsc --noEmit --skipLibCheck false --moduleResolution nodenext --module nodenext --target es2022 sync/index.d.ts adapters/index.d.ts adaptive/index.d.ts cli/runner.d.ts",
     "check": "node --check cli/moodlia-sync.mjs && node --check cli/runner.mjs && npm run types:compile && npm test",
     "pack:check": "npm pack --dry-run"

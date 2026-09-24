@@ -83,6 +83,20 @@ function capabilitySupports(capabilities, name, fields = []) {
   return fields.every((field) => supported.has(field));
 }
 
+const TEXT_FORMAT_NAMES = { 0: 'moodle', 1: 'html', 2: 'plain', 4: 'markdown' };
+
+// Returns the Moodle text format name if one of the target capabilities accepts it.
+// Capabilities that do not declare text_formats accept only html and plain.
+function representableTextFormat(capabilities, names, value) {
+  const name = TEXT_FORMAT_NAMES[value] ?? (Object.values(TEXT_FORMAT_NAMES).includes(value) ? value : null);
+  if (!name) return null;
+  const accepted = new Set(names.flatMap((capabilityName) => {
+    const declared = capabilities[capabilityName]?.text_formats;
+    return Array.isArray(declared) ? declared : ['html', 'plain'];
+  }));
+  return accepted.has(name) ? name : null;
+}
+
 function authoredContentHasFiles(content) {
   return /@@PLUGINFILE@@|\/(?:webservice\/)?pluginfile\.php(?:\/|\?)/i.test(String(content ?? ''));
 }
@@ -1215,8 +1229,8 @@ export function createCourseSyncPlan({
         if (sourceModule.module_type === 'resource' && (!assetsMatch || !settingsMatch)) {
           if (capabilitySupports(capabilities, 'resource_asset_replace', ['filename', 'filepath', 'filesize', 'content_hash'])) {
             const sourceAsset = assets[0];
-            const formats = { 1: 'html', 2: 'plain' };
-            const introFormat = formats[Number(authoring.settings?.intro_format ?? 1)];
+            const introFormat = representableTextFormat(capabilities, ['resource_asset_replace'],
+              Number(authoring.settings?.intro_format ?? 1));
             if (!introFormat) {
               unsupported.push({ kind: 'resource.content_format', source_key: sourceModule.sync_key, reason: 'destination_format_not_representable' });
               continue;
@@ -1259,7 +1273,7 @@ export function createCourseSyncPlan({
         }
         const settings = { ...(authoring.settings ?? {}), content: references.html };
         const assets = authoring.files ?? [];
-        if (![1, 2, 'html', 'plain'].includes(settings.content_format ?? 1)) {
+        if (!representableTextFormat(capabilities, ['page_content_update', 'module_create'], settings.content_format ?? 1)) {
           unsupported.push({ kind: 'page.content_format', source_key: sourceModule.sync_key, reason: 'destination_format_not_representable' });
           continue;
         }
@@ -1385,7 +1399,8 @@ export function createCourseSyncPlan({
           continue;
         }
         const settings = { ...originalSettings, [contentField]: references.html };
-        if (![1, 2, 'html', 'plain'].includes(settings[formatField] ?? 1)) {
+        if (!representableTextFormat(capabilities, [`${sourceModule.module_type}_content_update`, 'module_create'],
+          settings[formatField] ?? 1)) {
           unsupported.push({ kind: `${sourceModule.module_type}.content_format`, source_key: sourceModule.sync_key,
             reason: 'destination_format_not_representable' });
           continue;

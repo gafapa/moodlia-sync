@@ -20,7 +20,8 @@ function resultEntityId(result) {
   return null;
 }
 
-async function withAssetMaterials(sourceAdapter, assets, callback) {
+// Internal: exported for tests only; sync/index.mjs does not re-export it.
+export async function withAssetMaterials(sourceAdapter, assets, callback) {
   let cacheDirectory = null;
   try {
     const materials = [];
@@ -87,7 +88,8 @@ function resolveActionReferences(action, context) {
   return resolveValue(action);
 }
 
-function currentEntityDigest(action, model) {
+// Internal: exported for tests only.
+export function currentEntityDigest(action, model) {
   if (action.kind === 'course.update') return contentDigest(selectedCourseFields(model));
   if (action.kind === 'section.update') {
     return contentDigest(model.sections.find((entry) => entry.source_id === action.target_id));
@@ -111,7 +113,8 @@ function currentEntityDigest(action, model) {
   return null;
 }
 
-function verifyResults(plan, model, results) {
+// Internal: exported for tests only.
+export function verifyResults(plan, model, results) {
   const failures = [];
   const resultByAction = new Map(results.map((entry) => [entry.action_id, entry]));
   for (const action of plan.actions) {

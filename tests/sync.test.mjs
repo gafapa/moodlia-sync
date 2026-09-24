@@ -1615,3 +1615,39 @@ test('section verification prefers the created section id over its parent course
   assert.equal(job.status, 'succeeded');
   assert.equal(job.results[0].result.section_id, 91);
 });
+
+test('Markdown and Moodle-format content is planned only for targets that accept those formats', () => {
+  const modules = [
+    { id: 20, modname: 'page', name: 'Notes', authoring_completeness: 'complete',
+      authoring: { kind: 'page', settings: { content: '*Notes*', content_format: 4 } } },
+    { id: 21, modname: 'label', name: 'Label', authoring_completeness: 'complete',
+      authoring: { kind: 'label', settings: { content: 'Plain words', content_format: 0 } } }
+  ];
+  const source = model({
+    provider: 'moodlia', siteUrl: 'https://source.example', courseId: 7, fullname: 'Course', shortname: 'COURSE',
+    sections: [{ id: 10, section: 0, name: 'General', modules }]
+  });
+  const target = model({
+    provider: 'moodlia', siteUrl: 'https://target.example', courseId: 8, fullname: 'Course', shortname: 'COURSE',
+    sections: [{ id: 11, section: 0, name: 'General', modules: [] }]
+  });
+  const moduleCreate = { available: true, supported_fields: ['module_type', 'name', 'visible', 'settings'] };
+
+  const legacy = createCourseSyncPlan({ source, target, capabilities: { module_create: moduleCreate } });
+  assert.deepEqual(legacy.actions, []);
+  assert.deepEqual(legacy.unsupported.map((entry) => [entry.kind, entry.reason]), [
+    ['page.content_format', 'destination_format_not_representable'],
+    ['label.content_format', 'destination_format_not_representable']
+  ]);
+
+  const current = createCourseSyncPlan({
+    source,
+    target,
+    capabilities: { module_create: { ...moduleCreate, text_formats: ['html', 'plain', 'markdown', 'moodle'] } }
+  });
+  assert.deepEqual(current.unsupported, []);
+  assert.deepEqual(current.actions.map((action) => [action.fields.module_type, action.fields.settings.content_format]), [
+    ['page', 4],
+    ['label', 0]
+  ]);
+});
