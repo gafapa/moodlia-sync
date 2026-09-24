@@ -35,6 +35,23 @@ function redact(value) {
   return secrets.reduce((text, secret) => text.replaceAll(secret, '[redacted]'), String(value));
 }
 
+// Names the plan actions behind a verification failure, which the CLI reports only by id.
+function failedActionDetails(args, stderr) {
+  try {
+    const failures = JSON.parse(stderr).details?.failures ?? [];
+    const planPath = args[0] === 'apply' ? args[1] : null;
+    if (!planPath || failures.length === 0) return '';
+    const ids = new Set(failures.map((failure) => failure.action_id));
+    const actions = JSON.parse(fs.readFileSync(planPath, 'utf8')).actions
+      .filter((action) => ids.has(action.action_id))
+      .map(({ action_id: actionId, kind, source_key: sourceKey, target_id: targetId, fields }) =>
+        ({ action_id: actionId, kind, source_key: sourceKey, target_id: targetId, fields }));
+    return `\nFailed actions: ${redact(JSON.stringify(actions, null, 2))}`;
+  } catch {
+    return '';
+  }
+}
+
 function invoke(name, phase, args, allowedStatuses = [0]) {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: runner,
@@ -46,7 +63,7 @@ function invoke(name, phase, args, allowedStatuses = [0]) {
     mode: 0o600
   });
   if (!allowedStatuses.includes(result.status)) {
-    throw new Error(`${name} ${phase} exited ${result.status}: ${redact(result.stderr)}`);
+    throw new Error(`${name} ${phase} exited ${result.status}: ${redact(result.stderr)}${failedActionDetails(args, result.stderr)}`);
   }
   const output = JSON.parse(result.stdout);
   fs.writeFileSync(path.join(results, `${runId}-${name}-${phase}.json`), `${JSON.stringify(output, null, 2)}\n`, {
