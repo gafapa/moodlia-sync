@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import contract from 'moodlia/contract' with { type: 'json' };
 import { createSyncSiteAdapter } from 'moodlia-sync/adaptive';
 
-const root = '/qualification';
+const root = process.env.QUALIFICATION_ROOT ?? '/qualification';
 const results = `${root}/results`;
 const database = new Database(`${results}/public032-final-state.sqlite`, { readonly: true });
 const jobs = database.prepare('SELECT job_id, status, payload FROM sync_jobs ORDER BY updated_at').all()

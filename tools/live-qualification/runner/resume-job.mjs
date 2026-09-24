@@ -5,7 +5,7 @@ import path from 'node:path';
 const [runId, scenario, jobId] = process.argv.slice(2);
 if (!runId || !scenario || !jobId) throw new TypeError('runId, scenario, and jobId are required.');
 
-const root = '/qualification';
+const root = process.env.QUALIFICATION_ROOT ?? '/qualification';
 const runner = path.join(root, 'runner');
 const results = path.join(root, 'results');
 const fixtureNames = ['m45core', 'm45plugin', 'm53core', 'm53plugin'];

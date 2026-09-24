@@ -5,10 +5,13 @@ import path from 'node:path';
 import contract from 'moodlia/contract' with { type: 'json' };
 import { createSyncSiteAdapter } from 'moodlia-sync/adaptive';
 
-const root = '/qualification';
+// qualify-live (moodlia-test-lab) sets QUALIFICATION_ROOT; the S1 compose mounts /qualification.
+const root = process.env.QUALIFICATION_ROOT ?? '/qualification';
 const runner = path.join(root, 'runner');
 const results = path.join(root, 'results');
 const profilesPath = path.join(runner, 'profiles.json');
+const profileUrls = Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(profilesPath, 'utf8')).profiles)
+  .map(([name, profile]) => [name, profile.url]));
 const runId = String(process.env.QUALIFICATION_RUN_ID ?? '');
 assert.match(runId, /^[a-z0-9][a-z0-9-]{0,40}$/, 'QUALIFICATION_RUN_ID is required');
 const statePath = path.join(results, `${runId}-state.sqlite`);
@@ -176,11 +179,11 @@ function moodliaProfile(name, url, token) {
 }
 
 const sourceAdapter = createSyncSiteAdapter({
-  profile: moodliaProfile('m45plugin', 'http://127.0.0.1:18451', fixtures.m45plugin.token),
+  profile: moodliaProfile('m45plugin', profileUrls.m45plugin, fixtures.m45plugin.token),
   moodliaContract: contract
 });
 const targetAdapter = createSyncSiteAdapter({
-  profile: moodliaProfile('m53plugin', 'http://127.0.0.1:18531', fixtures.m53plugin.token),
+  profile: moodliaProfile('m53plugin', profileUrls.m53plugin, fixtures.m53plugin.token),
   moodliaContract: contract
 });
 const sourceModel = await sourceAdapter.exportCourse(fixtures.m45plugin.source_course_id);
