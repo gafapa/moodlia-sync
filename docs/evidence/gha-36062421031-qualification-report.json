@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "run_id": "gha-36062421031-1",
+  "generated_at": "2026-09-24T21:37:54.562Z",
+  "node_version": "v24.21.0",
+  "package_versions": {
+    "moodlia_sync": "0.1.0",
+    "moodlia": "0.4.0",
+    "moodle_core_cli": "0.4.1"
+  },
+  "scenarios": [
+    {
+      "name": "core-to-core",
+      "source_release": "5.3beta (Build: 20260916)",
+      "target_release": "4.5.12 (Build: 20260608)",
+      "source_provider": "core",
+      "target_provider": "core",
+      "initial_action_count": 4,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "9f5118b8-686c-4577-b7bd-0b36f5eff6c7",
+      "repeat_action_count": 0,
+      "verified": true
+    },
+    {
+      "name": "core-to-moodlia",
+      "source_release": "5.3beta (Build: 20260916)",
+      "target_release": "4.5.12 (Build: 20260608)",
+      "source_provider": "core",
+      "target_provider": "moodlia",
+      "initial_action_count": 6,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add",
+        "section.create"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "1843433e-8317-4e4d-8642-bee40801fa25",
+      "repeat_action_count": 0,
+      "verified": true
+    },
+    {
+      "name": "moodlia-to-core",
+      "source_release": "5.3beta (Build: 20260916)",
+      "target_release": "4.5.12 (Build: 20260608)",
+      "source_provider": "moodlia",
+      "target_provider": "core",
+      "initial_action_count": 4,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "1d93924d-3f88-4d42-b17b-fe7ffa30086c",
+      "repeat_action_count": 0,
+      "verified": true
+    },
+    {
+      "name": "moodlia-to-moodlia",
+      "source_release": "5.3beta (Build: 20260916)",
+      "target_release": "4.5.12 (Build: 20260608)",
+      "source_provider": "moodlia",
+      "target_provider": "moodlia",
+      "initial_action_count": 8,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add",
+        "module.create",
+        "module_asset.stage",
+        "section.create"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "c50db901-9dbb-463c-b207-57c10994e17a",
+      "repeat_action_count": 0,
+      "verified": true
+    }
+  ],
+  "rich_content": {
+    "module_name": "Portable Page á",
+    "asset_count": 2,
+    "nested_asset_verified": true,
+    "unicode_asset_verified": true,
+    "byte_hashes_match": true,
+    "pluginfile_references_preserved": true
+  }
+}

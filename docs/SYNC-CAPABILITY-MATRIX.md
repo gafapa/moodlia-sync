@@ -25,4 +25,6 @@ This matrix describes the current implementation, not the complete long-term roa
 | Quizzes and private question banks | Partial APIs | Ownership-safe round trip not proven | Normalized supported questions, settings subset, slots and maximum marks | Create a new Quiz, import its private bank, remap questions and create/update slots; explicit loss acceptance required | Partial preview |
 | Learner submissions, grades, attempts, logs | Excluded | Excluded | Excluded | Excluded | Out of scope |
 
+Text formats: Page, Label, URL, File resource, and Assignment text keep their Moodle format. HTML and plain text synchronize to every MoodlIA destination; Markdown and Moodle auto-format need MoodlIA plugin 0.1.215 or later on the destination, which declares them in each capability's `text_formats`. Otherwise planning reports `destination_format_not_representable`.
+
 `unsupported_policy=error` is the default. `skip` removes the unsupported entity and dependent actions from the executable graph and records them in `skipped`. `degrade` succeeds only for a named registered transformation; it is not a universal lossy switch.

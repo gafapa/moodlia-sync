@@ -36,6 +36,17 @@ No production synchronization or plugin deployment is part of this qualification
 
 ## Disposable live qualification
 
+Since `moodlia-sync` 0.1.0 the live qualification runs on GitHub Actions with the golden images of [gafapa/moodlia-test-lab](https://github.com/gafapa/moodlia-test-lab) (`qualify.yml`): four disposable SQLite sites (Core and MoodlIA on the source and target branches), the published npm packages, and plan, approve, apply, verify, and an unchanged re-plan for each provider pairing.
+
+On 2026-09-24 and 2026-09-25 it ran six times between Moodle 4.5.12 and 5.3beta in both directions with `moodlia-sync@0.1.0`, `moodlia@0.4.0`, `moodle-core-cli@0.4.1`, and MoodlIA plugin `0.1.215`:
+
+- Five runs passed all four pairings, including readback verification and a converged re-plan. A representative report is archived as `docs/evidence/gha-36062421031-qualification-report.json` (5.3 to 4.5).
+- One 5.3-to-4.5 run stopped before writing with `Source or target changed after the sync plan was created` in the Core-to-MoodlIA pairing. Neither it nor the cause reappeared in five later runs. The runner now exports both courses twice when this happens and keeps the models with the run evidence, so a recurrence shows which field moved.
+
+The first attempts failed in Core to Core with `readback_mismatch` on `course.update`. Every golden image had created a course named `LAB-SOURCE`, so copying the source shortname collided with the target site's own course. Moodle reported this as a warning and `moodle-core-cli` 0.4.0 treated the update as successful. `moodle-core-cli` 0.4.1 now fails such updates with Moodle's warning, and the fixture names its courses after the site (`M405CORE-SOURCE`).
+
+### 2026-09-22 run on S1
+
 On 2026-09-22 the four provider pairings were executed end to end between disposable Moodle sites on the isolated S1 host, using only public npm packages (`moodlia@0.3.7`, `moodle-core-cli@0.3.6`) and MoodlIA plugin build `2026092201` (release `0.1.213`, commit `117992c343c6397d8b14f1bee87bb7a43414333a`). Run identifier: `release037-core036-final`; the runner's report is archived as `docs/evidence/release037-core036-final-qualification-report.json`.
 
 | Scenario | Source | Destination | Initial actions | Documented gap | Apply | Live verify | Unchanged rerun |
