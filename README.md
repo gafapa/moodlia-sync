@@ -117,6 +117,22 @@ package in the chain with a native dependency.
 
 State databases created by `moodlia` 0.3 or `moodle-core-cli` 0.3 open unchanged.
 
+## Development
+
+```sh
+npm ci
+npm run check
+npm run test:coverage
+```
+
+The test suite needs no other repository: it runs against the published
+`moodlia` and `moodle-core-cli` in `package-lock.json`. CI runs it on this
+repository alone (`check`: Linux and Windows with Node 22.13 and 24, plus macOS
+arm64), and again in `siblings` against the `moodlia-cli` and `moodle-core-cli`
+sources (the branch with the same name when it exists, otherwise `main`). Live
+cross-version qualification against real Moodle sites runs from
+`moodlia-test-lab`; see `docs/CROSS-VERSION-QUALIFICATION.md`.
+
 ## License
 
 GPL-3.0-or-later.

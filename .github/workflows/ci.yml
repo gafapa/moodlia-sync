@@ -12,6 +12,7 @@ permissions:
   contents: read
 
 jobs:
+  # This repository alone, against the published moodlia and moodle-core-cli in package-lock.json.
   check:
     strategy:
       fail-fast: false
@@ -26,10 +27,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm rebuild better-sqlite3
+      - run: npm run check
+      - run: npm run test:coverage
+      - run: npm run pack:check
+      - run: npm audit --audit-level=high
+
+  # Integration with sibling sources: each uses the branch with this branch's name when it
+  # exists, otherwise main, so coordinated changes are tested together.
+  siblings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           path: moodlia-sync
-      # Sibling repositories use the branch with this branch's name when it exists, so
-      # coordinated changes are tested together; otherwise main.
       - name: Resolve sibling refs
         id: refs
         shell: bash
@@ -53,26 +68,20 @@ jobs:
           path: moodlia-cli
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
-      - name: Install unreleased Core
+          node-version: '24'
+      - name: Install Core from source
         working-directory: moodle-core-cli
         run: npm ci
-      - name: Install unreleased MoodlIA against local Core
+      - name: Install MoodlIA from source against the Core checkout
         working-directory: moodlia-cli
         run: |
           npm pkg set dependencies.moodle-core-cli="file:../moodle-core-cli"
           npm install
-      - name: Install moodlia-sync against local MoodlIA
+      - name: Use the MoodlIA checkout
         working-directory: moodlia-sync
         run: |
           npm pkg set dependencies.moodlia="file:../moodlia-cli"
           npm install
           npm rebuild better-sqlite3
       - run: npm run check
-        working-directory: moodlia-sync
-      - run: npm run test:coverage
-        working-directory: moodlia-sync
-      - run: npm run pack:check
-        working-directory: moodlia-sync
-      - run: npm audit --audit-level=high
         working-directory: moodlia-sync
