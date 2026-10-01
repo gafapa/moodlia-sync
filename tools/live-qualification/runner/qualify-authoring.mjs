@@ -63,7 +63,8 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
           : `${name}\nA & B <literal>\n**Markdown** and \`code\`\n@@PLUGINFILE@@/nested/diagram%20%C3%BCnicode.svg`;
         const created = await sourceClient.callOperation('create_module', {
           course_id: sourceCourse.course_id, section_number: 0, module_type: type, name,
-          options: { visible: false, ...(type === 'url' ? { external_url: 'https://example.org/' } : {}),
+          options: { visible: false, ...(type === 'label' ? { content: '<p>Initial label</p>' } : {}),
+            ...(type === 'url' ? { external_url: 'https://example.org/' } : {}),
             ...(type === 'assign' ? { online_text: false, file_submissions: false, feedback_comments: false,
               feedback_files: false, feedback_offline: false, feedback_editpdf: false } : {}) }
         });
