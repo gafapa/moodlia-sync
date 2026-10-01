@@ -5,13 +5,14 @@ import path from 'node:path';
 const FORMATS = { html: 1, plain: 2, markdown: 4, moodle: 0 };
 const TYPES = ['page', 'label', 'url', 'assign'];
 
-async function uploadFiles(client) {
+async function uploadFiles(client, beforeUpload) {
   const assets = [
     { filename: 'notes ünicode.txt', filepath: '/', data: Buffer.from('Portable source bytes\n') },
     { filename: 'diagram ünicode.svg', filepath: '/nested/', data: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="#369"/></svg>') }
   ];
   let itemId = 0;
   for (const asset of assets) {
+    beforeUpload(asset.filename);
     const uploaded = await client.uploadDraftData(asset.data, { filename: asset.filename, filepath: asset.filepath, itemId });
     itemId = Number(uploaded.draft_item_id);
     assert.ok(itemId > 0, 'Moodle must return a user-owned draft identity');
@@ -54,6 +55,8 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     const seeded = [];
     for (const type of TYPES) {
       for (const [format, constant] of Object.entries(FORMATS)) {
+        progress.current_case = { type, format, operation: 'create_module' };
+        save();
         const name = `Qualification ${type} ${format}`;
         const content = format === 'html'
           ? '<p>Portable content</p><a href="@@PLUGINFILE@@/nested/diagram%20%C3%BCnicode.svg">Asset</a>'
@@ -64,7 +67,13 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
             ...(type === 'assign' ? { online_text: false, file_submissions: false, feedback_comments: false,
               feedback_files: false, feedback_offline: false, feedback_editpdf: false } : {}) }
         });
-        const editor = await uploadFiles(sourceClient);
+        const editor = await uploadFiles(sourceClient, (filename) => {
+          progress.current_case.operation = 'uploadDraftData';
+          progress.current_case.filename = filename;
+          save();
+        });
+        progress.current_case.operation = type === 'assign' ? 'update_assignment' : `update_${type}`;
+        save();
         const parameters = { course_id: sourceCourse.course_id, module_id: created.module_id, ...editor };
         if (type === 'assign') {
           await sourceClient.callOperation('update_assignment', { ...parameters,
@@ -147,6 +156,7 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     return progress;
   } catch (error) {
     progress.error = redact(error.message);
+    progress.error_details = JSON.parse(redact(JSON.stringify(error.details ?? {})));
     save();
     throw new Error(`Authoring qualification failed during ${progress.phase}: ${redact(error.message)}`);
   }
