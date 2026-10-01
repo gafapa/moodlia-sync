@@ -47,12 +47,15 @@ jobs:
           - source: '5.3'
             target: '4.5'
             database: pgsql
-    uses: gafapa/moodlia-test-lab/.github/workflows/qualify.yml@5bee2da096738e272359fb2692bb5f16c9a2819d
+    uses: gafapa/moodlia-test-lab/.github/workflows/qualify.yml@9b0d15e4df19c4df4490dda78c08bd0fa609d8eb
     with:
       source: ${{ matrix.source }}
       target: ${{ matrix.target }}
       database: ${{ matrix.database }}
       package: moodlia-sync-under-test
       sync_ref: ${{ github.ref_name }}
+      lab_ref: '9b0d15e4df19c4df4490dda78c08bd0fa609d8eb'
+      plugin_ref: '765834aa2cdb0c325c6fe5d064febfd6de808b0f'
+      overlay_plugin: true
       plugin_smoke: false
       large_backup: false
