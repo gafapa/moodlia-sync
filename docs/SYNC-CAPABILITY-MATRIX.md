@@ -25,6 +25,32 @@ This matrix describes the current implementation, not the complete long-term roa
 | Quizzes and private question banks | Partial APIs | Ownership-safe round trip not proven | Normalized supported questions, settings subset, slots and maximum marks | Create a new Quiz, import its private bank, remap questions and create/update slots; explicit loss acceptance required | Partial preview |
 | Learner submissions, grades, attempts, logs | Excluded | Excluded | Excluded | Excluded | Out of scope |
 
-Text formats: Page, Label, URL, File resource, and Assignment text keep their Moodle format. HTML and plain text synchronize to every MoodlIA destination; Markdown and Moodle auto-format need MoodlIA plugin 0.1.215 or later on the destination, which declares them in each capability's `text_formats`. Otherwise planning reports `destination_format_not_representable`.
+Text formats must be checked against the operation that actually writes. Page,
+Label, URL and File formats beyond HTML/plain require the selected destination
+capability to declare them in `text_formats` (plugin 0.1.215 or later). This is
+necessary but not sufficient for every creation path:
+
+- New non-HTML Page/Label/URL editor drafts use a separate journaled content
+  update after creation. Both routes must accept the format; otherwise planning
+  blocks with `destination_editor_format_not_preserved` before staging files.
+- Assignment formats are checked against the field-specific update route when
+  mapped, when non-HTML or when files need publication. New non-HTML text is
+  updated after creation even without files. Published 0.1.1 still rejects
+  Markdown/Moodle-format Assignments; these fixes are unreleased.
+- New course summaries retain their known non-HTML format only when the
+  destination capability supports `summary_format` and that format. Core's
+  current friendly synchronization route does not declare this field.
+- Non-HTML text keeps literal characters rather than being serialized as HTML.
+  Internal links requiring remapping in these formats are blocked until a
+  format-specific rewriter exists.
+
+Apply and resume refresh destination discovery and compare the approved snapshot
+for pending operations before writing. After creating a course, pending operations
+are checked again in the returned course context. Core permission evidence can
+remain `unknown`: live Moodle enforces permissions. This preflight does not make
+remote writes transactional or prevent permission changes during execution.
+
+See [CROSS-VERSION-REVIEW.md](CROSS-VERSION-REVIEW.md) for the review scope,
+remaining risks and required live fixtures.
 
 `unsupported_policy=error` is the default. `skip` removes the unsupported entity and dependent actions from the executable graph and records them in `skipped`. `degrade` succeeds only for a named registered transformation; it is not a universal lossy switch.

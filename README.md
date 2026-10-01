@@ -11,6 +11,11 @@ for what each provider pairing can synchronize, and
 [docs/CROSS-VERSION-QUALIFICATION.md](docs/CROSS-VERSION-QUALIFICATION.md) for
 the live evidence.
 
+Cross-version support applies only to the content families and exact provider
+capabilities verified for a destination. The logical version matrix is not a
+live compatibility guarantee. See [docs/CROSS-VERSION-REVIEW.md](docs/CROSS-VERSION-REVIEW.md)
+for format guards, remaining gaps and qualification requirements.
+
 ## Install
 
 ```sh
@@ -88,8 +93,17 @@ Every command prints JSON. Exit codes: 0 success, 1 internal, 2 validation,
 - Applying requires a saved plan whose digest matches, an unexpired and
   unconsumed approval of that digest, `--allow-write`, unchanged source and
   target course digests, and a destination capability for every field.
+- Apply/resume refresh destination capabilities for pending operations and stop
+  if the approved snapshot changes. A new course switches from category to course
+  context before its child entities are written. Unknown Core permissions still
+  rely on Moodle enforcement; writes are not a cross-site transaction.
 - Intent is persisted before each write; timeouts become `unknown_outcome` and
   are reconciled before a resume replays anything.
+- Interrupted `started` intents are also treated as uncertain until reconciled.
+  A draft upload without a proven returned identity is not inferred successful
+  from course readback. Lease renewal failure stops further actions.
+- Plans order forward dependencies and reject cyclic new content links before
+  writes. New self-links remain unsupported pending separate shell publication.
 - Learner submissions, grades awarded, attempts, logs, and completion history
   are never synchronized.
 

@@ -2,7 +2,7 @@
 
 ## Scope
 
-The release suite evaluates the five supported Moodle branches (`4.5`, `5.0`, `5.1`, `5.2`, and `5.3`) in every source-to-target direction and through all four provider pairings:
+The logical suite enumerates five Moodle branch labels (`4.5`, `5.0`, `5.1`, `5.2`, and `5.3`) in every source-to-target direction and through all four provider pairings:
 
 - Core to Core
 - Core to MoodlIA
@@ -10,6 +10,32 @@ The release suite evaluates the five supported Moodle branches (`4.5`, `5.0`, `5
 - MoodlIA to MoodlIA
 
 This produces 100 logical scenarios. `tests/version-matrix.test.mjs` validates every immutable plan, preserves source and target version evidence, checks provider-specific capability outcomes, and rejects any plan containing backup, restore, course-copy, or `.mbz` transport markers.
+
+The fixtures reuse the same capabilities for each branch label. They do not
+load the real branch schemas or execute Moodle, and therefore do not qualify
+cross-version authoring compatibility. `tests/cross-version-formats.test.mjs`
+adds asymmetric create/update capability tests, legacy destination format gaps,
+course-summary preservation and guards for creation paths that force HTML.
+These are regression checks, not additional live branch qualification.
+
+`tests/publication-roundtrip.test.mjs` exercises the planner, engine and real
+MoodlIA adapter against a stateful remote stand-in that reproduces HTML-forcing
+creation. It covers 32 four-format activity cases in both endpoint directions,
+plus 16 legacy-plugin cases, readback and converged re-planning. Unsupported
+legacy formats produce no writes. The stand-in is not a real Moodle branch;
+the direction labels do not qualify branch-specific schemas or permissions.
+
+`tests/dependency-roundtrip.test.mjs` checks forward-link creation order,
+subdirectory-aware deferred URLs, preserved parameters/fragments, durable
+resolved intents, readback and a converged re-plan. New cyclic and self-linked
+definitions stay blocked; they are not a demonstrated transfer capability.
+The engine recovery regressions cover process interruption, unknown drafts,
+publication parent identities and a lost lease before subsequent writes.
+
+The test-lab weekly workflow schedules all 25 branch directions. A scheduled
+matrix is not evidence that every job passed, nor proof for content types absent
+from the live fixture. The archived runs below cover a narrower fixture and
+must not be generalized to all activities or text formats.
 
 ## Expected outcomes
 

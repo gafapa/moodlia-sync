@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import contract from 'moodlia/contract' with { type: 'json' };
 import { createSyncSiteAdapter } from 'moodlia-sync/adaptive';
+import { qualifyAuthoring } from './qualify-authoring.mjs';
 
 // qualify-live (moodlia-test-lab) sets QUALIFICATION_ROOT; the S1 compose mounts /qualification.
 const root = process.env.QUALIFICATION_ROOT ?? '/qualification';
@@ -259,6 +260,10 @@ report.rich_content = {
   byte_hashes_match: true,
   pluginfile_references_preserved: true
 };
+
+report.authoring = await qualifyAuthoring({ sourceAdapter, targetAdapter,
+  sourceFixture: fixtures.m45plugin, targetFixture: fixtures.m53plugin,
+  runId, results, invoke, common: ['--config', profilesPath, '--state', statePath], redact });
 
 const reportPath = path.join(results, `${runId}-qualification-report.json`);
 fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });

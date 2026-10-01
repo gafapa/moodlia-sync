@@ -74,6 +74,26 @@ function addAction(actions, action) {
   actions.push({ action_id: actionId(action), ...action });
 }
 
+function actionReferenceKeys(action) {
+  return [action.parent_source_key, action.parent_module_source_key, action.after_source_key, action.asset_stage_source_key,
+    action.dependency_source_key, action.question_import_source_key, action.module_source_key,
+    action.group_source_key, action.grouping_source_key, ...(action.reference_source_keys ?? [])].filter(Boolean);
+}
+
+function dependencyOrder(actions) {
+  const remaining = [...actions];
+  const completed = new Set();
+  const ordered = [];
+  while (remaining.length > 0) {
+    const index = remaining.findIndex((action) => (action.depends_on ?? []).every((id) => completed.has(id)));
+    if (index === -1) return null;
+    const [action] = remaining.splice(index, 1);
+    ordered.push(action);
+    completed.add(action.action_id);
+  }
+  return ordered;
+}
+
 function capabilitySupports(capabilities, name, fields = []) {
   const capability = capabilities[name];
   if (capability === true) return true;
@@ -85,7 +105,7 @@ function capabilitySupports(capabilities, name, fields = []) {
 
 const TEXT_FORMAT_NAMES = { 0: 'moodle', 1: 'html', 2: 'plain', 4: 'markdown' };
 
-// Returns the Moodle text format name if one of the target capabilities accepts it.
+// Check the operation that will actually write, rather than a different route.
 // Capabilities that do not declare text_formats accept only html and plain.
 function representableTextFormat(capabilities, names, value) {
   const name = TEXT_FORMAT_NAMES[value] ?? (Object.values(TEXT_FORMAT_NAMES).includes(value) ? value : null);
@@ -139,11 +159,15 @@ export function createCourseSyncPlan({
       category_id: Number(targetCreation?.category_id),
       ...(source.course.idnumber ? { idnumber: source.course.idnumber } : {}),
       ...(source.course.summary !== null ? { summary: source.course.summary } : {}),
+      ...(source.course.summary !== null && source.course.summary_format !== null
+        && source.course.summary_format !== 'html' ? { summary_format: source.course.summary_format } : {}),
       visible: false,
       ...(source.course.start_date !== null ? { start_date: source.course.start_date } : {}),
       ...(source.course.end_date !== null ? { end_date: source.course.end_date } : {})
     };
-    if (capabilitySupports(capabilities, 'course_create', Object.keys(fields))) {
+    if (fields.summary_format && !representableTextFormat(capabilities, ['course_create'], fields.summary_format)) {
+      unsupported.push({ kind: 'course.create', fields: ['summary_format'], reason: 'destination_format_not_representable' });
+    } else if (capabilitySupports(capabilities, 'course_create', Object.keys(fields))) {
       addAction(actions, {
         kind: 'course.create', entity_namespace: 'courses',
         source_key: `course:${source.course.source_id}`, target_id: null,
@@ -154,8 +178,18 @@ export function createCourseSyncPlan({
   const courseFields = target.course.source_id === null ? {} : threeWayChangedFields(source.course, target.course, baseline?.source_model?.course, baseline?.target_model?.course, [
     'fullname', 'shortname', 'idnumber', 'summary', 'summary_format', 'visible', 'start_date', 'end_date'
   ], { conflicts, divergences, conflictPolicy, identity: { kind: 'course.update', source_key: `course:${source.course.source_id}` } });
+  // Moodle writes summary and format together; a format-only update is invalid,
+  // and omitting a non-HTML format resets the text to HTML on the plugin route.
+  if (Object.hasOwn(courseFields, 'summary') || Object.hasOwn(courseFields, 'summary_format')) {
+    courseFields.summary ??= target.course.summary ?? source.course.summary;
+    const format = courseFields.summary_format ?? target.course.summary_format ?? source.course.summary_format;
+    if (format && format !== 'html') courseFields.summary_format = format;
+  }
   if (Object.keys(courseFields).length > 0) {
-    if (capabilitySupports(capabilities, 'course_update', Object.keys(courseFields))) {
+    if (courseFields.summary_format
+      && !representableTextFormat(capabilities, ['course_update'], courseFields.summary_format)) {
+      unsupported.push({ kind: 'course.update', fields: ['summary_format'], reason: 'destination_format_not_representable' });
+    } else if (capabilitySupports(capabilities, 'course_update', Object.keys(courseFields))) {
       addAction(actions, {
         kind: 'course.update',
         source_key: `course:${source.course.source_id}`,
@@ -171,6 +205,7 @@ export function createCourseSyncPlan({
   for (const sourceSection of source.sections) {
     const targetSection = targetSectionByMapping(target, mapping, sourceSection);
     const references = rewriteMoodleHtmlReferences(sourceSection.summary, {
+      textFormat: sourceSection.summary_format ?? 'html',
       sourceSiteUrl: source.site.site_url,
       targetSiteUrl: target.site.site_url,
       sourceModel: source,
@@ -842,17 +877,25 @@ export function createCourseSyncPlan({
           Number(authoring.content?.intro_format ?? 1),
           Number(authoring.content?.activity_format ?? 1)
         ];
-        if (assignmentFormats.some((format) => ![1, 2].includes(format))) {
+        const mappedAssignment = targetEntityByMapping(targetModules, mapping, 'modules', sourceModule);
+        const assignmentFiles = {
+          intro: authoring.content?.intro_files ?? [],
+          activity: authoring.content?.activity_files ?? []
+        };
+        const contentAreas = ['intro', 'activity'];
+        const formatsSupported = assignmentFormats.every((format, index) => {
+          const updateRequired = mappedAssignment || format !== 1 || assignmentFiles[contentAreas[index]].length > 0;
+          const capability = updateRequired ? 'assignment_content_update' : 'module_create';
+          return representableTextFormat(capabilities, [capability], format)
+            && (!updateRequired || capabilitySupports(capabilities, capability, [contentAreas[index], `${contentAreas[index]}_format`]));
+        });
+        if (!formatsSupported) {
           unsupported.push({
             kind: 'assignment.content_format', source_key: sourceModule.sync_key,
             reason: 'destination_format_not_representable', source_formats: assignmentFormats
           });
           continue;
         }
-        const assignmentFiles = {
-          intro: authoring.content?.intro_files ?? [],
-          activity: authoring.content?.activity_files ?? []
-        };
         const incompleteFileArea = ['intro', 'activity'].find((filearea) =>
           authoredContentHasFiles(authoring.content?.[filearea]) && assignmentFiles[filearea].length === 0);
         if (incompleteFileArea) {
@@ -861,6 +904,7 @@ export function createCourseSyncPlan({
           continue;
         }
         const introReferences = rewriteMoodleHtmlReferences(authoring.content?.intro ?? '', {
+          textFormat: authoring.content?.intro_format ?? 1,
           sourceSiteUrl: source.site.site_url,
           targetSiteUrl: target.site.site_url,
           sourceModel: source,
@@ -868,6 +912,7 @@ export function createCourseSyncPlan({
           mapping
         });
         const activityReferences = rewriteMoodleHtmlReferences(authoring.content?.activity ?? '', {
+          textFormat: authoring.content?.activity_format ?? 1,
           sourceSiteUrl: source.site.site_url,
           targetSiteUrl: target.site.site_url,
           sourceModel: source,
@@ -940,9 +985,11 @@ export function createCourseSyncPlan({
             ...(referenceSourceKeys.length > 0 ? { reference_source_keys: referenceSourceKeys } : {}),
             fields, effects: ['content.write']
           });
-          for (const [filearea, files] of assetFileAreas) {
-            const stageSourceKey = `draft:${filearea}:${sourceModule.sync_key}`;
-            addAction(actions, {
+          for (const [index, filearea] of contentAreas.entries()) {
+            const files = assignmentFiles[filearea];
+            if (files.length === 0 && assignmentFormats[index] === 1) continue;
+            const stageSourceKey = files.length > 0 ? `draft:${filearea}:${sourceModule.sync_key}` : null;
+            if (stageSourceKey) addAction(actions, {
               kind: 'module_asset.stage', entity_namespace: 'drafts', source_key: stageSourceKey,
               assets: files, effects: ['file.read', 'file.write']
             });
@@ -951,14 +998,13 @@ export function createCourseSyncPlan({
               parent_source_key: sourceModule.sync_key,
               target_id: null,
               file_area: filearea,
-              asset_stage_source_key: stageSourceKey,
-              expected_assets: files,
+              ...(stageSourceKey ? { asset_stage_source_key: stageSourceKey, expected_assets: files } : {}),
               ...(referenceSourceKeys.length > 0 ? { reference_source_keys: referenceSourceKeys } : {}),
               fields: {
                 [filearea]: portableContent[filearea],
                 [`${filearea}_format`]: portableContent[`${filearea}_format`]
               },
-              effects: ['content.write', 'file.write']
+              effects: stageSourceKey ? ['content.write', 'file.write'] : ['content.write']
             });
           }
           if (gradingDefinition) {
@@ -1175,6 +1221,11 @@ export function createCourseSyncPlan({
         const targetModule = targetEntityByMapping(targetModules, mapping, 'modules', sourceModule);
         const targetSection = targetSectionByMapping(target, mapping, sourceSection);
         if (!targetModule) {
+          if (!representableTextFormat(capabilities, ['module_create'], authoring.settings?.intro_format ?? 1)) {
+            unsupported.push({ kind: `${sourceModule.module_type}.content_format`, source_key: sourceModule.sync_key,
+              reason: 'destination_format_not_representable' });
+            continue;
+          }
           const parentWillBeCreated = actions.some((action) =>
             action.kind === 'section.create' && action.source_key === sourceSection.sync_key);
           if (!targetSection && !parentWillBeCreated) {
@@ -1260,6 +1311,7 @@ export function createCourseSyncPlan({
         }
         const authoring = sourceModule.authoring ?? {};
         const references = rewriteMoodleHtmlReferences(authoring.settings?.content ?? '', {
+          textFormat: authoring.settings?.content_format ?? 1,
           sourceSiteUrl: source.site.site_url,
           targetSiteUrl: target.site.site_url,
           sourceModel: source,
@@ -1273,15 +1325,24 @@ export function createCourseSyncPlan({
         }
         const settings = { ...(authoring.settings ?? {}), content: references.html };
         const assets = authoring.files ?? [];
-        if (!representableTextFormat(capabilities, ['page_content_update', 'module_create'], settings.content_format ?? 1)) {
+        const targetModule = targetEntityByMapping(targetModules, mapping, 'modules', sourceModule);
+        const formatCapability = targetModule ? 'page_content_update' : 'module_create';
+        if (!representableTextFormat(capabilities, [formatCapability], settings.content_format ?? 1)) {
           unsupported.push({ kind: 'page.content_format', source_key: sourceModule.sync_key, reason: 'destination_format_not_representable' });
+          continue;
+        }
+        const separatePublication = !targetModule && assets.length > 0
+          && representableTextFormat(capabilities, ['module_create'], settings.content_format ?? 1) !== 'html';
+        if (separatePublication && (!capabilitySupports(capabilities, 'page_content_update', Object.keys(settings))
+          || !representableTextFormat(capabilities, ['page_content_update'], settings.content_format ?? 1))) {
+          unsupported.push({ kind: 'page.content_format', source_key: sourceModule.sync_key,
+            reason: 'destination_editor_format_not_preserved' });
           continue;
         }
         if (authoredContentHasFiles(settings.content) && assets.length === 0) {
           unsupported.push({ kind: 'module.assets', source_key: sourceModule.sync_key, module_type: 'page', reason: 'native_editor_asset_manifest_incomplete' });
           continue;
         }
-        const targetModule = targetEntityByMapping(targetModules, mapping, 'modules', sourceModule);
         const targetSection = targetSectionByMapping(target, mapping, sourceSection);
         if (!targetModule) {
           const parentWillBeCreated = actions.some((action) =>
@@ -1310,7 +1371,7 @@ export function createCourseSyncPlan({
             parent_source_key: sourceSection.sync_key,
             target_section_number: targetSection?.section_number ?? null,
             target_id: null,
-            ...(stageSourceKey ? { asset_stage_source_key: stageSourceKey, expected_assets: assets } : {}),
+            ...(stageSourceKey && !separatePublication ? { asset_stage_source_key: stageSourceKey, expected_assets: assets } : {}),
             ...(references.reference_source_keys.length > 0
               ? { reference_source_keys: references.reference_source_keys } : {}),
             fields: {
@@ -1318,7 +1379,15 @@ export function createCourseSyncPlan({
               ...(sourceModule.visible === null ? {} : { visible: sourceModule.visible }),
               settings
             },
-            effects: assets.length > 0 ? ['content.write', 'file.write'] : ['content.write']
+            effects: assets.length > 0 && !separatePublication ? ['content.write', 'file.write'] : ['content.write']
+          });
+          if (separatePublication) addAction(actions, {
+            kind: 'page_content.update', source_key: `content:${sourceModule.sync_key}`,
+            parent_source_key: sourceModule.sync_key, target_id: null,
+            asset_stage_source_key: stageSourceKey, expected_assets: assets,
+            ...(references.reference_source_keys.length > 0
+              ? { reference_source_keys: references.reference_source_keys } : {}),
+            fields: settings, effects: ['content.write', 'file.write']
           });
           continue;
         }
@@ -1387,6 +1456,7 @@ export function createCourseSyncPlan({
         const contentField = sourceModule.module_type === 'label' ? 'content' : 'intro';
         const formatField = sourceModule.module_type === 'label' ? 'content_format' : 'intro_format';
         const references = rewriteMoodleHtmlReferences(originalSettings[contentField] ?? '', {
+          textFormat: originalSettings[formatField] ?? 1,
           sourceSiteUrl: source.site.site_url,
           targetSiteUrl: target.site.site_url,
           sourceModel: source,
@@ -1399,10 +1469,20 @@ export function createCourseSyncPlan({
           continue;
         }
         const settings = { ...originalSettings, [contentField]: references.html };
-        if (!representableTextFormat(capabilities, [`${sourceModule.module_type}_content_update`, 'module_create'],
+        const targetModule = targetEntityByMapping(targetModules, mapping, 'modules', sourceModule);
+        const formatCapability = targetModule ? `${sourceModule.module_type}_content_update` : 'module_create';
+        if (!representableTextFormat(capabilities, [formatCapability],
           settings[formatField] ?? 1)) {
           unsupported.push({ kind: `${sourceModule.module_type}.content_format`, source_key: sourceModule.sync_key,
             reason: 'destination_format_not_representable' });
+          continue;
+        }
+        const separatePublication = !targetModule && assets.length > 0
+          && representableTextFormat(capabilities, ['module_create'], settings[formatField] ?? 1) !== 'html';
+        if (separatePublication && (!capabilitySupports(capabilities, `${sourceModule.module_type}_content_update`, Object.keys(settings))
+          || !representableTextFormat(capabilities, [`${sourceModule.module_type}_content_update`], settings[formatField] ?? 1))) {
+          unsupported.push({ kind: `${sourceModule.module_type}.content_format`, source_key: sourceModule.sync_key,
+            reason: 'destination_editor_format_not_preserved' });
           continue;
         }
         if (authoredContentHasFiles(settings[contentField]) && assets.length === 0) {
@@ -1410,7 +1490,6 @@ export function createCourseSyncPlan({
             module_type: sourceModule.module_type, reason: 'native_editor_asset_manifest_incomplete' });
           continue;
         }
-        const targetModule = targetEntityByMapping(targetModules, mapping, 'modules', sourceModule);
         const targetSection = targetSectionByMapping(target, mapping, sourceSection);
         if (!targetModule) {
           const parentWillBeCreated = actions.some((action) =>
@@ -1444,11 +1523,19 @@ export function createCourseSyncPlan({
               parent_source_key: sourceSection.sync_key,
               target_section_number: targetSection?.section_number ?? null,
               target_id: null,
-              ...(stageSourceKey ? { asset_stage_source_key: stageSourceKey, expected_assets: assets } : {}),
+              ...(stageSourceKey && !separatePublication ? { asset_stage_source_key: stageSourceKey, expected_assets: assets } : {}),
               ...(references.reference_source_keys.length > 0
                 ? { reference_source_keys: references.reference_source_keys } : {}),
               fields: moduleFields,
-              effects: stageSourceKey ? ['content.write', 'file.write'] : ['content.write']
+              effects: stageSourceKey && !separatePublication ? ['content.write', 'file.write'] : ['content.write']
+            });
+            if (separatePublication) addAction(actions, {
+              kind: `${sourceModule.module_type}_content.update`, source_key: `content:${sourceModule.sync_key}`,
+              parent_source_key: sourceModule.sync_key, target_id: null,
+              asset_stage_source_key: stageSourceKey, expected_assets: assets,
+              ...(references.reference_source_keys.length > 0
+                ? { reference_source_keys: references.reference_source_keys } : {}),
+              fields: settings, effects: ['content.write', 'file.write']
             });
           } else unsupported.push({ kind: 'module.create', source_key: sourceModule.sync_key, reason: 'target_capability_unavailable' });
           continue;
@@ -1607,6 +1694,7 @@ export function createCourseSyncPlan({
           ? null
           : targetChapters.find((chapter) => Number(chapter.chapter_id) === Number(mappedId));
         const references = rewriteMoodleHtmlReferences(sourceChapter.content ?? '', {
+          textFormat: sourceChapter.content_format ?? 1,
           sourceSiteUrl: source.site.site_url,
           targetSiteUrl: target.site.site_url,
           sourceModel: source,
@@ -1904,9 +1992,7 @@ export function createCourseSyncPlan({
       changed = false;
       for (const action of actions) {
         if (skippedKeys.has(action.source_key)
-          || skippedKeys.has(action.parent_source_key)
-          || skippedKeys.has(action.group_source_key)
-          || skippedKeys.has(action.grouping_source_key)) {
+          || actionReferenceKeys(action).some((key) => skippedKeys.has(key))) {
           if (!skippedKeys.has(action.source_key)) {
             skippedKeys.add(action.source_key);
             changed = true;
@@ -1917,9 +2003,7 @@ export function createCourseSyncPlan({
     for (let index = actions.length - 1; index >= 0; index -= 1) {
       const action = actions[index];
       if (skippedKeys.has(action.source_key)
-        || skippedKeys.has(action.parent_source_key)
-        || skippedKeys.has(action.group_source_key)
-        || skippedKeys.has(action.grouping_source_key)) {
+        || actionReferenceKeys(action).some((key) => skippedKeys.has(key))) {
         skipped.unshift({
           kind: action.kind,
           source_key: action.source_key,
@@ -1927,6 +2011,17 @@ export function createCourseSyncPlan({
         });
         actions.splice(index, 1);
       }
+    }
+    const usedDrafts = new Set(actions.map((action) => action.asset_stage_source_key).filter(Boolean));
+    for (let index = actions.length - 1; index >= 0; index -= 1) {
+      if (actions[index].kind === 'module_asset.stage' && !usedDrafts.has(actions[index].source_key)) {
+        skipped.unshift({ kind: actions[index].kind, source_key: actions[index].source_key, reason: 'no_remaining_publication' });
+        actions.splice(index, 1);
+      }
+    }
+    if (target.course.source_id === null && !actions.some((action) => action.kind === 'course.create')) {
+      skipped.push(...actions.map((action) => ({ kind: action.kind, source_key: action.source_key, reason: 'target_course_unavailable' })));
+      actions.length = 0;
     }
   }
   for (const action of actions) {
@@ -1937,17 +2032,7 @@ export function createCourseSyncPlan({
     action.action_id = actionId(actionIdentity);
   }
   for (const action of actions) {
-    const dependencySourceKeys = [
-      action.parent_source_key,
-      action.after_source_key,
-      action.asset_stage_source_key,
-      action.dependency_source_key,
-      action.question_import_source_key,
-      action.module_source_key,
-      action.group_source_key,
-      action.grouping_source_key,
-      ...(action.reference_source_keys ?? [])
-    ].filter(Boolean);
+    const dependencySourceKeys = actionReferenceKeys(action);
     action.depends_on = [...new Set(actions
       .filter((candidate) => candidate.action_id !== action.action_id
         && dependencySourceKeys.includes(candidate.source_key)
@@ -1955,7 +2040,13 @@ export function createCourseSyncPlan({
           || candidate.kind === 'module_asset.stage'
           || candidate.kind === 'quiz_questions.import'))
       .map((candidate) => candidate.action_id))].sort();
+    if (action.kind.endsWith('.create') && action.reference_source_keys?.includes(action.source_key)) {
+      action.depends_on.push(action.action_id);
+    }
   }
+  const orderedActions = dependencyOrder(actions);
+  if (orderedActions) actions.splice(0, actions.length, ...orderedActions);
+  else unsupported.push({ kind: 'plan.dependencies', reason: 'cyclic_action_dependencies' });
   const selectedEntityKeys = [
     `course:${source.course.source_id}`,
     ...source.sections.map((section) => section.sync_key),
@@ -2019,7 +2110,9 @@ export function createCourseSyncPlan({
       ...(source.unknowns ?? []).map((entry) => ({ side: 'source', ...entry })),
       ...(target.unknowns ?? []).map((entry) => ({ side: 'target', ...entry }))
     ],
-    applicable: (!['abort', 'report'].includes(conflictPolicy) || conflicts.length === 0)
+    applicable: orderedActions !== null
+      && (target.course.source_id !== null || actions.some((action) => action.kind === 'course.create'))
+      && (!['abort', 'report'].includes(conflictPolicy) || conflicts.length === 0)
       && (unsupportedPolicy === 'skip'
         || unsupported.length === 0
         || (unsupportedPolicy === 'degrade' && unsupported.every((entry) => entry.degradable === true)))
@@ -2041,6 +2134,23 @@ export function validateSyncPlan(plan) {
   }
   const { digest, ...unsigned } = plan;
   if (contentDigest(unsigned) !== digest) throw new TypeError('Sync plan digest does not match its contents.');
+  if (!Number.isFinite(Date.parse(plan.expires_at))) throw new TypeError('Sync plan expiry is invalid.');
   if (Date.parse(plan.expires_at) <= Date.now()) throw new TypeError('Sync plan has expired.');
+  if (!Array.isArray(plan.actions) || plan.actions.some((action) => typeof action.action_id !== 'string' || !action.action_id)
+    || new Set(plan.actions.map((action) => action.action_id)).size !== plan.actions.length) {
+    throw new TypeError('Sync plan action identities are invalid or duplicated.');
+  }
+  const completed = new Set();
+  const unmet = plan.actions.flatMap((action) => {
+    const missing = (action.depends_on ?? []).filter((id) => !completed.has(id));
+    completed.add(action.action_id);
+    return missing;
+  });
+  if (plan.applicable && unmet.length > 0) {
+    const error = new TypeError('Sync plan has unmet or cyclic action dependencies.');
+    error.code = 'action_dependency_unmet';
+    error.dependencies = [...new Set(unmet)];
+    throw error;
+  }
   return plan;
 }

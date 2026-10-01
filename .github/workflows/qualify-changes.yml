@@ -1,0 +1,58 @@
+name: Qualify synchronization changes
+
+on:
+  push:
+    branches: ['qualification/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm run check
+      - run: npm pack
+      - name: Record package provenance
+        run: |
+          git rev-parse HEAD > qualification-provenance.txt
+          sha256sum moodlia-sync-*.tgz >> qualification-provenance.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: moodlia-sync-under-test
+          path: |
+            moodlia-sync-*.tgz
+            qualification-provenance.txt
+  qualify:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source: '4.5'
+            target: '5.3'
+            database: sqlite3
+          - source: '5.3'
+            target: '4.5'
+            database: sqlite3
+          - source: '4.5'
+            target: '5.3'
+            database: pgsql
+          - source: '5.3'
+            target: '4.5'
+            database: pgsql
+    uses: gafapa/moodlia-test-lab/.github/workflows/qualify.yml@5bee2da096738e272359fb2692bb5f16c9a2819d
+    with:
+      source: ${{ matrix.source }}
+      target: ${{ matrix.target }}
+      database: ${{ matrix.database }}
+      package: moodlia-sync-under-test
+      sync_ref: ${{ github.ref_name }}
+      plugin_smoke: false
+      large_backup: false
