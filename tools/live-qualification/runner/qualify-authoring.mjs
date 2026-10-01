@@ -50,6 +50,13 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     progress.source_course_id = sourceCourse.course_id;
     progress.target_course_id = targetCourse.course_id;
     assert.ok(progress.source_course_id > 0 && progress.target_course_id > 0);
+    for (const [client, courseId] of [[sourceClient, sourceCourse.course_id], [targetClient, targetCourse.course_id]]) {
+      const inventory = await client.callOperation('get_course_contents', { course_id: courseId });
+      for (const module of inventory.sections.flatMap((section) => section.modules)) {
+        assert.equal(module.module_type, 'forum', 'Only Moodle automatic announcements may exist in a fresh fixture');
+        await client.callOperation('delete_module', { course_id: courseId, module_id: module.module_id });
+      }
+    }
     progress.phase = 'seed-content';
     save();
     const seeded = [];
@@ -91,7 +98,30 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     // Warm Moodle's lazily initialized gradebook before immutable extraction.
     await sourceClient.callOperation('get_grade_items', { course_id: sourceCourse.course_id });
     await targetClient.callOperation('get_grade_items', { course_id: targetCourse.course_id });
-    await sourceAdapter.exportCourse(sourceCourse.course_id);
+    const initialSource = await sourceAdapter.exportCourse(sourceCourse.course_id);
+    progress.source_summary = initialSource.course;
+    progress.source_read_diagnostics = [];
+    for (const module of initialSource.sections.flatMap((section) => section.modules)
+      .filter((entry) => entry.authoring_completeness === 'unavailable')) {
+      const diagnostic = { module_id: module.source_id, type: module.module_type };
+      try {
+        const details = await sourceClient.callOperation('get_module_details', {
+          course_id: sourceCourse.course_id, module_id: module.source_id });
+        const extra = JSON.parse(details.extra_json);
+        const activity = typeof extra.activity === 'string' ? JSON.parse(extra.activity) : extra.activity;
+        let files = activity?.files ?? [];
+        if (module.module_type === 'assign') {
+          const assignments = await sourceClient.callOperation('get_course_assignments', { course_id: sourceCourse.course_id });
+          files = assignments.assignments.find((entry) => entry.module_id === module.source_id)?.intro_files ?? [];
+        }
+        diagnostic.file_count = files.length;
+        for (const file of files) await sourceClient.downloadFile(file.url);
+      } catch (error) {
+        diagnostic.error = error.message;
+        diagnostic.details = error.details ?? {};
+      }
+      progress.source_read_diagnostics.push(diagnostic);
+    }
     await targetAdapter.exportCourse(targetCourse.course_id);
     const planPath = path.join(results, `${runId}-authoring.plan.json`);
     progress.phase = 'plan';
