@@ -62,6 +62,44 @@ No production synchronization or plugin deployment is part of this qualification
 
 ## Disposable live qualification
 
+### 2026-10-02 qualification of unreleased changes
+
+[Run 36937166691](https://github.com/gafapa/moodlia-sync/actions/runs/36937166691)
+passed Moodle 4.5.12 to 5.3 beta and the reverse direction, each on SQLite and
+PostgreSQL. Every combination passed the four provider fixtures and a separate
+16-case MoodlIA authoring fixture: Page, Label, URL and Assignment, each in HTML,
+plain text, Markdown and Moodle format. Readback preserved text and format, and
+32 owned files per combination retained Unicode names, nested paths and SHA-256
+digests. Every unchanged re-plan contained zero actions. Four direction/database
+reports are archived in `docs/evidence/gha-36937166691-*-qualification-report.json`.
+
+This tested a branch-built artifact, not the published `moodlia-sync@0.1.1`:
+
+- Sync and runner commit: `47f6c2ed8c0b12f448259e2378d675a741447dfa`.
+- Package SHA-256: `efcef4eddbf15197f0f8b002bba96e255dbc02b7404833953e3fecaa75a7ebd7`.
+- Plugin commit: `765834aa2cdb0c325c6fe5d064febfd6de808b0f`, including original-text
+  Page/Label/URL readers. Its version label alone does not identify these changes.
+- Lab commit: `9b0d15e4df19c4df4490dda78c08bd0fa609d8eb`, with explicit SQLite plugin overlays.
+- Dependencies: `moodlia@0.4.1` and `moodle-core-cli@0.4.1`.
+
+The authoring fixture first proved that strict planning blocks a non-HTML course
+summary without raw text, and blocks incomplete Assignment plugin configuration.
+It then used an HTML course summary and allowed only the four declared
+`assignment_selected_settings` transformations. No authored module was skipped.
+This establishes selected Assignment text/file fidelity, not complete plugin
+configuration fidelity. Core provider fixtures use the existing explicit-gap
+policy and do not establish Core content-authoring parity.
+
+Live testing also found invalid legacy introduction-file URLs and invalid
+module-grade-item range updates. The sync branch normalizes those file routes
+against their owned paths and keeps grade ranges in the owning activity's
+creation settings. Unsupported range updates remain blocking.
+
+The separate general plugin suite is **not green**: diagnostic runs found three
+PHPUnit errors on 4.5 and two on 5.3, plus static/REST fixture failures. See
+`docs/evidence/2026-10-02-plugin-suite-findings.md`. This prevents a general plugin
+release claim even though the scoped synchronization run passed.
+
 Since `moodlia-sync` 0.1.0 the live qualification runs on GitHub Actions with the golden images of [gafapa/moodlia-test-lab](https://github.com/gafapa/moodlia-test-lab) (`qualify.yml`): four disposable SQLite sites (Core and MoodlIA on the source and target branches), the published npm packages, and plan, approve, apply, verify, and an unchanged re-plan for each provider pairing.
 
 On 2026-09-24 and 2026-09-25 it ran six times between Moodle 4.5.12 and 5.3beta in both directions with `moodlia-sync@0.1.0`, `moodlia@0.4.0`, `moodle-core-cli@0.4.1`, and MoodlIA plugin `0.1.215`:

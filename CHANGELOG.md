@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Correct legacy plugin introduction-file URLs using the stored file path,
+  retaining genuine `0` directories and authenticated file hashing.
+- Preserve activity-owned grade ranges through the owning creation settings;
+  never send those ranges to the generic grade-item update API. Block range
+  changes that require an unsupported owning-activity update.
+- Block non-HTML course summaries when a legacy service exports rendered HTML
+  without raw source text. `skip` omits both summary text and format explicitly.
+- Add a disposable GitHub qualification workflow for both directions between
+  Moodle 4.5 and 5.3 beta, on SQLite and PostgreSQL, using a package artifact
+  built from the isolated test branch rather than an npm release.
 - Resolve deferred Moodle links against the actual target site's subdirectory,
   retain query parameters and fragments, and block unresolved or mismatched
   chapter ownership. Order dependent creates before their consumers; cyclic

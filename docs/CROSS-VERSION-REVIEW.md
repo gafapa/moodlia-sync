@@ -57,10 +57,11 @@ regression-tested. These changes are local and unreleased.
 
 ## Remaining work, in priority order
 
-1. **Live publication qualification.** Run the corrected field-specific routes
-   on disposable Moodle sites, including empty text, all formats, multiple
-   owned files and interrupted/resumed publication. The stand-in tests exercise
-   the implementation but do not qualify real editors or branch schemas.
+1. **Extend live publication qualification.** The 2026-10-02 run passed Page,
+   Label, URL and selected Assignment content in all four formats, in both
+   endpoint directions and on SQLite/PostgreSQL. Extend that scope to empty text
+   and interrupted/resumed publication on live sites. The stand-in tests exercise
+   additional branches but cannot qualify those behaviors on real editors.
 2. **Capability precision.** Preflight now detects changed pending snapshots.
    Core permission probes still report unknown; Moodle enforces them remotely.
    No preflight can guarantee permissions stay constant between remote writes.
@@ -82,8 +83,18 @@ regression-tested. These changes are local and unreleased.
 
 ## Release gate
 
+Live testing on 2026-10-02 exposed two additional legacy-service defects:
+introduction file URLs included an item-id segment that Moodle does not expect,
+and non-HTML course summaries returned rendered HTML without the original text.
+The synchronizer now normalizes the former against the owned file path and
+blocks summary publication for the latter. The fixture checks the summary gap
+before testing module formats with an HTML course summary. Exact run results
+and scope belong in the qualification evidence; these fixes remain unreleased.
+
 Do not advertise complete cross-version synchronization from the logical
 matrix. Require disposable-site apply, separate readback and unchanged re-plan
 for each claimed content family and direction. Unsupported fixtures must prove
-no mutation of that entity or its dependent assets. Changes discovered during
-this review have not been qualified against live Moodle sites.
+no mutation of that entity or its dependent assets. The scoped publication
+evidence is recorded in `CROSS-VERSION-QUALIFICATION.md`; it does not qualify
+all supported families or resolve the general plugin-suite failures recorded
+alongside the run evidence.
