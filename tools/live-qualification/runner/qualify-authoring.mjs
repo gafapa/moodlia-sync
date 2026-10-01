@@ -96,7 +96,8 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
         const parameters = { course_id: sourceCourse.course_id, module_id: created.module_id, ...editor };
         if (type === 'assign') {
           await sourceClient.callOperation('update_assignment', { ...parameters,
-            intro: content, intro_format: format, activity: `${name}\nInstructions & <literal>`,
+            intro: content, intro_format: format,
+            activity: format === 'html' ? '<p>Portable instructions &amp; examples</p>' : `${name}\nInstructions & <literal>`,
             activity_format: format, file_area: 'intro' });
         } else {
           const textField = type === 'url' ? 'intro' : 'content';
