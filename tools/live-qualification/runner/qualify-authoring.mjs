@@ -38,12 +38,12 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     const targetDetails = await targetClient.callOperation('get_course_details', { course_id: targetFixture.target_course_ids[1] });
     const sourceCourse = await sourceClient.callOperation('create_course', {
       fullname: 'Cross-version authoring qualification', shortname: `${runId}-author-source`,
-      category_id: sourceDetails.course.category_id, visible: false, enable_completion: false,
+      category_id: sourceDetails.category_id, visible: false, enable_completion: false,
       summary: 'A & B <literal>\nPortable summary', summary_format: 'plain'
     });
     const targetCourse = await targetClient.callOperation('create_course', {
       fullname: 'Empty authoring destination', shortname: `${runId}-author-target`,
-      category_id: targetDetails.course.category_id, visible: false, enable_completion: false,
+      category_id: targetDetails.category_id, visible: false, enable_completion: false,
       summary: 'Previous summary', summary_format: 'html'
     });
     progress.source_course_id = sourceCourse.course_id;
