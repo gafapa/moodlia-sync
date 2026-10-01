@@ -80,3 +80,32 @@ test('rendered legacy summaries cannot be copied as raw non-HTML source text', a
     assert.ok(!supported.unknowns.some((entry) => entry.reason === 'raw_summary_unavailable'));
   }
 });
+
+test('activity-owned grade ranges cannot be written through the generic grade-item API', () => {
+  const snapshot = (id, moduleId, maximum, pass, includeModule = true) => createCourseSyncModel({
+    site: { provider: 'moodlia', site_url: `https://site-${id}.example` },
+    course: { id, fullname: 'Course', shortname: 'COURSE' },
+    sections: [{ id: id + 10, section: 0, modules: includeModule ? [{ id: moduleId, modname: 'assign', name: 'Task',
+      authoring_completeness: 'complete', authoring: { kind: 'assignment', settings: { grade: 100 },
+        content: { intro: '', intro_format: 1, activity: '', activity_format: 1 }, losses: [] } }] : [] }],
+    gradebook: { losses: [], items: includeModule ? [{ kind: 'module', module_source_key: `module:${moduleId}`,
+      remote_item_id: moduleId + 100, item_number: 0, grade_min: 0, grade_max: maximum,
+      grade_pass: pass, hidden: false, locked: false }] : [] }
+  });
+  const source = snapshot(7, 20, 100, 80);
+  const capabilities = { module_create: true, assignment_content_update: true, grade_item_update: true };
+  const mapped = createCourseSyncPlan({ source, target: snapshot(8, 30, 100, 0),
+    mapping: { modules: { 'module:20': 30 } }, capabilities });
+  assert.equal(mapped.applicable, true, JSON.stringify(mapped.unsupported));
+  const update = mapped.actions.find((action) => action.kind === 'grade_item.update');
+  assert.deepEqual(update.fields, { grade_pass: 80 });
+  const changedRange = createCourseSyncPlan({ source, target: snapshot(8, 30, 50, 0),
+    mapping: { modules: { 'module:20': 30 } }, capabilities });
+  assert.equal(changedRange.applicable, false);
+  assert.ok(changedRange.unsupported.some((entry) => entry.reason === 'grade_range_requires_owning_activity_update'));
+  assert.ok(!changedRange.actions.some((action) => action.kind === 'grade_item.update'));
+  const unrepresented = createCourseSyncPlan({ source: snapshot(7, 20, 120, 80),
+    target: snapshot(8, 30, 100, 0, false), capabilities });
+  assert.equal(unrepresented.applicable, false);
+  assert.ok(unrepresented.unsupported.some((entry) => entry.reason === 'grade_range_requires_owning_activity_update'));
+});

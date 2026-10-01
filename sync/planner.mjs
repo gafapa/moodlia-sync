@@ -1963,8 +1963,22 @@ export function createCourseSyncPlan({
             item.kind === 'module'
             && item.module_source_key === `module:${mappedModuleId}`
             && Number(item.item_number) === Number(sourceItem.item_number));
+          // Moodle owns module grade ranges in the activity configuration.
+          // update_grade_item must never receive a module name or grade range.
+          const gradeField = sourceModule.module_type === 'workshop'
+            ? (Number(sourceItem.item_number) === 0 ? 'submission_grade' : 'assessment_grade') : 'grade';
+          const createdGrade = createAction?.fields.settings?.[gradeField];
+          const rangePreserved = targetItem
+            ? Number(sourceItem.grade_min) === Number(targetItem.grade_min)
+              && Number(sourceItem.grade_max) === Number(targetItem.grade_max)
+            : createdGrade !== undefined && Number(sourceItem.grade_min) === 0
+              && Number(sourceItem.grade_max) === Number(createdGrade);
+          if (!rangePreserved) {
+            unsupported.push({ kind: 'module_grade_item.range', source_key: sourceItem.module_source_key,
+              reason: 'grade_range_requires_owning_activity_update' });
+            continue;
+          }
           const fields = {
-            grade_min: sourceItem.grade_min, grade_max: sourceItem.grade_max,
             grade_pass: sourceItem.grade_pass, hidden: sourceItem.hidden,
             locked: sourceItem.locked,
             ...(sourceItem.weight_overridden ? { weight: sourceItem.weight } : {})
