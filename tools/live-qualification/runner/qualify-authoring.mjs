@@ -25,7 +25,8 @@ function identity(file) {
 }
 
 // The parent runner owns only disposable lab sites and approvals. This fixture
-// deliberately uses strict unsupported policy and never transfers learner data.
+// proves strict gaps, then allows only the declared Assignment transformation.
+// It never transfers learner data.
 export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFixture, targetFixture,
   runId, results, invoke, common, redact }) {
   const progress = { schema_version: 1, phase: 'setup', source_course_id: null, target_course_id: null, cases: [] };
@@ -113,6 +114,11 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     // with an HTML summary after separately proving the unsafe summary is blocked.
     await sourceClient.callOperation('update_course', { course_id: sourceCourse.course_id,
       summary: '<p>Portable summary</p>', summary_format: 'html' });
+    const updatedInventory = await sourceClient.callOperation('get_course_contents', { course_id: sourceCourse.course_id });
+    for (const module of updatedInventory.sections.flatMap((section) => section.modules)
+      .filter((entry) => entry.module_type === 'forum')) {
+      await sourceClient.callOperation('delete_module', { course_id: sourceCourse.course_id, module_id: module.module_id });
+    }
     progress.source_read_diagnostics = [];
     for (const module of initialSource.sections.flatMap((section) => section.modules)
       .filter((entry) => entry.authoring_completeness === 'unavailable')) {
@@ -139,12 +145,27 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     const planPath = path.join(results, `${runId}-authoring.plan.json`);
     progress.phase = 'plan';
     save();
-    const plan = invoke('authoring', 'plan', ['plan', '--source-profile', 'm45plugin',
+    const strict = invoke('authoring', 'strict-plan', ['plan', '--source-profile', 'm45plugin',
       '--source-course-id', String(sourceCourse.course_id), '--target-profile', 'm53plugin',
       '--target-course-id', String(targetCourse.course_id), '--unsupported-policy', 'error',
+      '--plan-file', path.join(results, `${runId}-authoring-strict.plan.json`), ...common], [0, 3]);
+    assert.equal(strict.applicable, false, 'Unexported Assignment plugin configuration must remain an explicit gap');
+    assert.equal(strict.unsupported.filter((entry) => entry.kind === 'assignment.settings').length, 4);
+    assert.ok(strict.actions.every((action) => action.kind !== 'module.create' || action.fields.module_type !== 'assign'));
+    progress.assignment_strict_guard_verified = true;
+    const plan = invoke('authoring', 'plan', ['plan', '--source-profile', 'm45plugin',
+      '--source-course-id', String(sourceCourse.course_id), '--target-profile', 'm53plugin',
+      '--target-course-id', String(targetCourse.course_id), '--unsupported-policy', 'degrade',
       '--plan-file', planPath, ...common], [0, 3]);
     assert.equal(plan.applicable, true, JSON.stringify(plan.unsupported));
-    assert.deepEqual(plan.unsupported, [], 'Strict authoring qualification must not silently skip fields');
+    assert.equal(plan.unsupported.length, 4);
+    assert.ok(plan.unsupported.every((entry) => entry.kind === 'assignment.settings'
+      && entry.transformation === 'assignment_selected_settings'
+      && entry.reason === 'selected_configuration_incomplete'
+      && JSON.stringify(entry.losses) === JSON.stringify(['submission_plugin_configuration_not_exported'])));
+    assert.equal(plan.skipped.length, 0, 'No authoring entity may be silently skipped');
+    progress.allowed_gaps = plan.unsupported;
+    progress.assignment_transformation = 'assignment_selected_settings';
     assert.equal(plan.actions.filter((action) => action.kind === 'module.create').length, seeded.length);
     invoke('authoring', 'approve', ['approve', planPath, '--yes', ...common]);
     progress.phase = 'apply';
@@ -187,7 +208,7 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     save();
     const repeat = invoke('authoring', 'repeat-plan', ['plan', '--source-profile', 'm45plugin',
       '--source-course-id', String(sourceCourse.course_id), '--target-profile', 'm53plugin',
-      '--target-course-id', String(targetCourse.course_id), '--unsupported-policy', 'error',
+      '--target-course-id', String(targetCourse.course_id), '--unsupported-policy', 'degrade',
       '--plan-file', path.join(results, `${runId}-authoring-repeat.plan.json`), ...common], [0, 3]);
     assert.equal(repeat.applicable, true, JSON.stringify(repeat.unsupported));
     assert.equal(repeat.actions.length, 0, 'The rich authoring fixture must converge without writes');
