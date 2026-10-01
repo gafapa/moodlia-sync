@@ -100,6 +100,19 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     await targetClient.callOperation('get_grade_items', { course_id: targetCourse.course_id });
     const initialSource = await sourceAdapter.exportCourse(sourceCourse.course_id);
     progress.source_summary = initialSource.course;
+    const guarded = invoke('authoring', 'summary-guard-plan', ['plan', '--source-profile', 'm45plugin',
+      '--source-course-id', String(sourceCourse.course_id), '--target-profile', 'm53plugin',
+      '--target-course-id', String(targetCourse.course_id), '--unsupported-policy', 'error',
+      '--plan-file', path.join(results, `${runId}-authoring-summary-guard.plan.json`), ...common], [0, 3]);
+    assert.equal(guarded.applicable, false);
+    assert.ok(guarded.unsupported.some((entry) => entry.reason === 'source_raw_text_unavailable'));
+    assert.ok(guarded.actions.every((action) => !action.kind.startsWith('course.')
+      || !Object.hasOwn(action.fields ?? {}, 'summary')));
+    progress.summary_raw_guard_verified = true;
+    // Legacy services expose a rendered course summary; qualify module formats
+    // with an HTML summary after separately proving the unsafe summary is blocked.
+    await sourceClient.callOperation('update_course', { course_id: sourceCourse.course_id,
+      summary: '<p>Portable summary</p>', summary_format: 'html' });
     progress.source_read_diagnostics = [];
     for (const module of initialSource.sections.flatMap((section) => section.modules)
       .filter((entry) => entry.authoring_completeness === 'unavailable')) {
@@ -142,7 +155,7 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     const source = await sourceAdapter.exportCourse(sourceCourse.course_id);
     const target = await targetAdapter.exportCourse(targetCourse.course_id);
     assert.equal(target.course.summary, source.course.summary);
-    assert.equal(target.course.summary_format, 'plain');
+    assert.equal(target.course.summary_format, 'html');
     const sourceModules = source.sections.flatMap((section) => section.modules);
     const targetModules = target.sections.flatMap((section) => section.modules);
     for (const entry of seeded) {

@@ -152,14 +152,19 @@ export function createCourseSyncPlan({
   const unsupported = [];
   const conflicts = [];
   const divergences = [];
+  const summaryUnavailable = (source.unknowns ?? []).some((entry) =>
+    entry.scope === 'course' && entry.field === 'summary' && entry.reason === 'raw_summary_unavailable');
+  if (summaryUnavailable) {
+    unsupported.push({ kind: 'course.summary', fields: ['summary', 'summary_format'], reason: 'source_raw_text_unavailable' });
+  }
   if (target.course.source_id === null) {
     const fields = {
       fullname: source.course.fullname,
       shortname: String(targetCreation?.shortname ?? source.course.shortname),
       category_id: Number(targetCreation?.category_id),
       ...(source.course.idnumber ? { idnumber: source.course.idnumber } : {}),
-      ...(source.course.summary !== null ? { summary: source.course.summary } : {}),
-      ...(source.course.summary !== null && source.course.summary_format !== null
+      ...(!summaryUnavailable && source.course.summary !== null ? { summary: source.course.summary } : {}),
+      ...(!summaryUnavailable && source.course.summary !== null && source.course.summary_format !== null
         && source.course.summary_format !== 'html' ? { summary_format: source.course.summary_format } : {}),
       visible: false,
       ...(source.course.start_date !== null ? { start_date: source.course.start_date } : {}),
@@ -177,7 +182,8 @@ export function createCourseSyncPlan({
   }
   const courseFields = target.course.source_id === null ? {} : threeWayChangedFields(source.course, target.course, baseline?.source_model?.course, baseline?.target_model?.course, [
     'fullname', 'shortname', 'idnumber', 'summary', 'summary_format', 'visible', 'start_date', 'end_date'
-  ], { conflicts, divergences, conflictPolicy, identity: { kind: 'course.update', source_key: `course:${source.course.source_id}` } });
+  ].filter((field) => !summaryUnavailable || !['summary', 'summary_format'].includes(field)),
+  { conflicts, divergences, conflictPolicy, identity: { kind: 'course.update', source_key: `course:${source.course.source_id}` } });
   // Moodle writes summary and format together; a format-only update is invalid,
   // and omitting a non-HTML format resets the text to HTML on the plugin route.
   if (Object.hasOwn(courseFields, 'summary') || Object.hasOwn(courseFields, 'summary_format')) {

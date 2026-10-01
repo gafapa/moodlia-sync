@@ -274,6 +274,13 @@ async function hashChapterFiles(client, chapter) {
 
 function normalizeFile(file) {
   const url = new URL(String(file.url));
+  // Older plugin releases include an item id in generic introduction URLs,
+  // although Moodle's introduction handler expects only the stored file path.
+  const relativePath = `${file.filepath ?? '/'}${file.filename}`;
+  const introPrefix = url.pathname.match(/^(.*\/mod_[^/]+\/intro)\/0(\/.*)$/);
+  if (introPrefix && relativePathVariants(relativePath).has(introPrefix[2])) {
+    url.pathname = `${introPrefix[1]}${introPrefix[2]}`;
+  }
   for (const name of ['token', 'wstoken', 'access_token']) url.searchParams.delete(name);
   return {
     filename: String(file.filename),
@@ -955,9 +962,14 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       courseCompletion: completion,
       gradebook,
       exclusions,
-      unknowns: exclusions
+      unknowns: [
+        ...((course.summary_raw === undefined || course.summary_raw === null)
+          && course.summary && !['html', '1', 1, undefined, null].includes(course.summary_format ?? course.summaryformat)
+          ? [{ scope: 'course', field: 'summary', reason: 'raw_summary_unavailable' }] : []),
+        ...exclusions
         .filter((entry) => entry.reason.endsWith('_read_unavailable'))
-        .map((entry) => ({ ...entry, field: 'authoring' })),
+        .map((entry) => ({ ...entry, field: 'authoring' }))
+      ],
       completeness: { inventory: 'complete', pagination: 'complete', authoring: 'selected' },
       capabilityEvidence: {
         provider: 'moodlia',
