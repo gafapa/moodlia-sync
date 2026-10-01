@@ -34,6 +34,16 @@ export async function qualifyAuthoring({ sourceAdapter, targetAdapter, sourceFix
     `${redact(JSON.stringify(progress, null, 2))}\n`, { mode: 0o600 });
   const sourceClient = sourceAdapter.adapters.moodlia.client;
   const targetClient = targetAdapter.adapters.moodlia.client;
+  // CLI phases block this process's event loop. Do not reuse fixture sockets
+  // whose remote keep-alive timeout elapsed while a child process was running.
+  for (const client of [sourceClient, targetClient]) {
+    const request = client.transport.fetchImplementation;
+    client.transport.fetchImplementation = (url, options = {}) => {
+      const headers = new Headers(options.headers);
+      headers.set('connection', 'close');
+      return request(url, { ...options, headers });
+    };
+  }
   save();
   try {
     const sourceDetails = await sourceClient.callOperation('get_course_details', { course_id: sourceFixture.source_course_id });
