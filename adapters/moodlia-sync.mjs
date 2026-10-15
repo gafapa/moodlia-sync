@@ -274,6 +274,13 @@ async function hashChapterFiles(client, chapter) {
 
 function normalizeFile(file) {
   const url = new URL(String(file.url));
+  // Older plugin releases include an item id in generic introduction URLs,
+  // although Moodle's introduction handler expects only the stored file path.
+  const relativePath = `${file.filepath ?? '/'}${file.filename}`;
+  const introPrefix = url.pathname.match(/^(.*\/mod_[^/]+\/intro)\/0(\/.*)$/);
+  if (introPrefix && relativePathVariants(relativePath).has(introPrefix[2])) {
+    url.pathname = `${introPrefix[1]}${introPrefix[2]}`;
+  }
   for (const name of ['token', 'wstoken', 'access_token']) url.searchParams.delete(name);
   return {
     filename: String(file.filename),
@@ -955,9 +962,14 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       courseCompletion: completion,
       gradebook,
       exclusions,
-      unknowns: exclusions
+      unknowns: [
+        ...((course.summary_raw === undefined || course.summary_raw === null)
+          && course.summary && !['html', '1', 1, undefined, null].includes(course.summary_format ?? course.summaryformat)
+          ? [{ scope: 'course', field: 'summary', reason: 'raw_summary_unavailable' }] : []),
+        ...exclusions
         .filter((entry) => entry.reason.endsWith('_read_unavailable'))
-        .map((entry) => ({ ...entry, field: 'authoring' })),
+        .map((entry) => ({ ...entry, field: 'authoring' }))
+      ],
       completeness: { inventory: 'complete', pagination: 'complete', authoring: 'selected' },
       capabilityEvidence: {
         provider: 'moodlia',
@@ -1009,10 +1021,12 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
     const gradebookWriteAllowed = evidence.gradebook_manage === true;
     return {
       course_create: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('create_course') && courseCreateAllowed,
-        supported_fields: ['fullname', 'shortname', 'category_id', 'idnumber', 'summary', 'visible', 'start_date', 'end_date']
+        supported_fields: ['fullname', 'shortname', 'category_id', 'idnumber', 'summary', 'summary_format', 'visible', 'start_date', 'end_date']
       },
       course_update: {
+        text_formats: this.textFormats(),
         available: this.hasDeclaredOperation('update_course') && courseWriteAllowed,
         supported_fields: [
           'fullname', 'shortname', 'category_id', 'summary', 'summary_format',
@@ -1291,6 +1305,8 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       });
     }
     if (action.kind === 'page_content.update') {
+      const createdModule = createdEntities.get(`modules:${action.parent_source_key ?? action.source_key}`);
+      const moduleId = action.target_id ?? createdModule?.module_id;
       const fields = { ...action.fields };
       if (fields.content_format !== undefined) fields.content_format = this.textFormat(fields.content_format);
       if (action.fields.content_format !== undefined && !fields.content_format) {
@@ -1301,7 +1317,7 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
         : null;
       return this.client.callOperation('update_page', {
         course_id: courseId,
-        module_id: action.target_id,
+        module_id: Number(moduleId),
         ...fields,
         ...(staged?.draft_item_id ? {
           filename: staged.files[0].filename,
@@ -1310,6 +1326,8 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
       });
     }
     if (action.kind === 'label_content.update' || action.kind === 'url_content.update') {
+      const createdModule = createdEntities.get(`modules:${action.parent_source_key ?? action.source_key}`);
+      const moduleId = action.target_id ?? createdModule?.module_id;
       const operation = action.kind === 'label_content.update' ? 'update_label' : 'update_url';
       const formatField = action.kind === 'label_content.update' ? 'content_format' : 'intro_format';
       const fields = { ...action.fields };
@@ -1326,7 +1344,7 @@ export class MoodliaSyncAdapter extends MoodliaMoodleAdapter {
         : null;
       return this.client.callOperation(operation, {
         course_id: courseId,
-        module_id: action.target_id,
+        module_id: Number(moduleId),
         ...fields,
         ...(staged?.draft_item_id ? {
           filename: staged.files[0].filename,

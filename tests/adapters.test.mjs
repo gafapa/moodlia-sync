@@ -57,6 +57,17 @@ test('adaptive adapter falls back when MoodlIA discovery fails', async () => {
   assert.equal((await adaptive.exportCourse(1)).site.selected_provider, 'core');
 });
 
+test('adaptive capability refresh removes stale routes when both providers lose write access', async () => {
+  let available = true;
+  const moodlia = adapter('moodlia', {}, {});
+  moodlia.syncCapabilities = async () => ({ module_asset_stage: { available } });
+  const adaptive = createAdaptiveSyncAdapter({ moodlia });
+  assert.equal((await adaptive.syncCapabilities()).module_asset_stage.provider, 'moodlia');
+  available = false;
+  assert.equal((await adaptive.syncCapabilities()).module_asset_stage.available, false);
+  await assert.rejects(adaptive.providerForCapability('module_asset_stage'), /No provider is available/);
+});
+
 test('adaptive adapter routes binary sync work through the selected MoodlIA capability', async () => {
   const calls = [];
   const moodlia = {

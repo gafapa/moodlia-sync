@@ -76,7 +76,7 @@ function targetModel(version, provider) {
   });
 }
 
-test('logical release matrix qualifies 100 Moodle branch and provider pairings', () => {
+test('logical matrix enumerates 100 branch-label and provider planner cases without live qualification', () => {
   const outcomes = [];
   for (const sourceVersion of MOODLE_BRANCHES) {
     for (const targetVersion of MOODLE_BRANCHES) {

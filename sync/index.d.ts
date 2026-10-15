@@ -26,6 +26,7 @@ export interface CourseSyncPlan {
   source: Record<string, unknown>;
   target: Record<string, unknown>;
   actions: Array<Record<string, unknown>>;
+  capability_snapshot: Record<string, unknown>;
   entity_mapping_snapshot: Record<string, Record<string, number>>;
   conflicts: Array<Record<string, unknown>>;
   divergences: Array<Record<string, unknown>>;

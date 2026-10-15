@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { contentDigest } from 'moodlia/core/canonical';
+import { MoodleClientError } from 'moodlia/core/transport';
 import { selectedCourseFields } from './model.mjs';
 import { courseBindingId, createCourseSyncPlan, validateSyncPlan } from './planner.mjs';
 import { resolveDeferredMoodleReferences } from './references.mjs';
@@ -63,6 +64,27 @@ function fieldsMatch(entity, fields) {
   return entity && Object.entries(fields).every(([name, value]) => entity[name] === value);
 }
 
+async function preflightCapabilities(plan, targetAdapter, actions, context, { refresh = false } = {}) {
+  if (actions.length === 0) return;
+  if (refresh && typeof targetAdapter.discoverSite === 'function') await targetAdapter.discoverSite();
+  const current = await targetAdapter.syncCapabilities(context);
+  const changed = [];
+  for (const name of new Set(actions.map((action) => action.kind.replaceAll('.', '_')))) {
+    const approved = plan.capability_snapshot?.[name];
+    const live = current[name];
+    const normalize = (value) => value === true ? { available: true } : value;
+    if (!(live === true || live?.available === true)
+      || !approved || contentDigest(normalize(approved)) !== contentDigest(normalize(live))) {
+      changed.push(name);
+    }
+  }
+  if (changed.length > 0) {
+    throw new MoodleClientError('capability_gap',
+      'Destination capabilities changed after approval; create and review a new plan.',
+      { reason: 'approved_capability_changed', capabilities: changed, context });
+  }
+}
+
 function reconcileCreateResult(action, model) {
   const collections = {
     'group.create': model.groups,
@@ -114,10 +136,15 @@ export function currentEntityDigest(action, model) {
 }
 
 // Internal: exported for tests only.
-export function verifyResults(plan, model, results) {
+export function verifyResults(plan, model, results, { actions = plan.actions } = {}) {
   const failures = [];
   const resultByAction = new Map(results.map((entry) => [entry.action_id, entry]));
-  for (const action of plan.actions) {
+  const publishedModuleId = (action) => {
+    const creation = plan.actions.find((candidate) => candidate.kind === 'module.create'
+      && candidate.source_key === action.parent_source_key);
+    return action.target_id ?? resultEntityId(resultByAction.get(creation?.action_id)?.result);
+  };
+  for (const action of actions) {
     let entity;
     if (action.kind === 'module_asset.stage') continue;
     if (action.kind === 'grouping.member.add') {
@@ -162,8 +189,11 @@ export function verifyResults(plan, model, results) {
       entity = model.sections.flatMap((section) => section.modules)
         .find((entry) => entry.source_id === moduleId);
       const fields = resultByAction.get(action.action_id)?.resolved_fields ?? action.fields;
+      const settings = entity?.module_type === 'assign'
+        ? { ...(entity?.authoring?.settings ?? {}), ...(entity?.authoring?.content ?? {}) }
+        : entity?.authoring?.settings;
       const settingsMatch = Object.entries(fields.settings ?? {})
-        .every(([name, value]) => entity?.authoring?.settings?.[name] === value);
+        .every(([name, value]) => settings?.[name] === value);
       if (!entity
         || (fields.module_type !== undefined && entity.module_type !== fields.module_type)
         || (fields.name !== undefined && entity.name !== fields.name)
@@ -234,7 +264,7 @@ export function verifyResults(plan, model, results) {
     }
     if (action.kind === 'page_content.update') {
       entity = model.sections.flatMap((section) => section.modules)
-        .find((entry) => entry.source_id === action.target_id);
+        .find((entry) => entry.source_id === publishedModuleId(action));
       const comparable = { name: entity?.name, ...(entity?.authoring?.settings ?? {}) };
       const fields = resultByAction.get(action.action_id)?.resolved_fields ?? action.fields;
       if (!fieldsMatch(comparable, fields)) {
@@ -251,7 +281,7 @@ export function verifyResults(plan, model, results) {
     }
     if (action.kind === 'label_content.update' || action.kind === 'url_content.update') {
       entity = model.sections.flatMap((section) => section.modules)
-        .find((entry) => entry.source_id === action.target_id);
+        .find((entry) => entry.source_id === publishedModuleId(action));
       const comparable = action.kind === 'url_content.update'
         ? { name: entity?.name, ...(entity?.authoring?.settings ?? {}) }
         : (entity?.authoring?.settings ?? {});
@@ -525,7 +555,12 @@ export class CourseSyncEngine {
           continue;
         }
         const result = resumedJob.results.findLast((entry) => entry.action_id === action.action_id);
-        if (!result || !['failed', 'unknown_outcome'].includes(result.status)) continue;
+        if (!result || !['failed', 'unknown_outcome', 'started'].includes(result.status)) continue;
+        if (result.status === 'started') {
+          result.status = 'unknown_outcome';
+          result.reconciliation_reason = 'process_interrupted_after_write_intent';
+          this.stateStore.saveJob(resumedJob);
+        }
         const reconciledResult = reconcileCreateResult(action, freshTarget);
         if (reconciledResult) {
           result.status = 'succeeded';
@@ -549,7 +584,12 @@ export class CourseSyncEngine {
           continue;
         }
         if (result.status === 'unknown_outcome') {
-          const failures = verifyResults({ ...plan, actions: [action] }, freshTarget, [result]);
+          if (action.kind === 'module_asset.stage') {
+            throw new MoodleClientError('unknown_outcome',
+              'An interrupted draft upload requires reconciliation before resume.',
+              { action_id: action.action_id, reason: 'draft_identity_unproven' });
+          }
+          const failures = verifyResults(plan, freshTarget, resumedJob.results, { actions: [action] });
           if (failures.length > 0) {
             throw new TypeError('An action has an ambiguous outcome and requires reconciliation before resume.');
           }
@@ -561,8 +601,8 @@ export class CourseSyncEngine {
       const completedIds = new Set(resumedJob.results
         .filter((entry) => entry.status === 'succeeded')
         .map((entry) => entry.action_id));
-      const completedPlan = { ...plan, actions: plan.actions.filter((action) => completedIds.has(action.action_id)) };
-      const failures = verifyResults(completedPlan, freshTarget, resumedJob.results);
+      const completedActions = plan.actions.filter((action) => completedIds.has(action.action_id));
+      const failures = verifyResults(plan, freshTarget, resumedJob.results, { actions: completedActions });
       if (failures.length > 0) throw new TypeError('Completed actions require reconciliation before this job can resume.');
     }
     const executionOwner = resumeJobId ?? jobId ?? randomUUID();
@@ -611,6 +651,10 @@ export class CourseSyncEngine {
       if (action?.kind === 'course.create') currentCourseId = resultEntityId(completed.result);
     }
     try {
+      const pendingActions = () => plan.actions.filter((action) => !completedActionIds.has(action.action_id));
+      await preflightCapabilities(plan, targetAdapter, pendingActions(), currentCourseId === null
+        ? { categoryId: plan.target.creation.category_id }
+        : { courseId: currentCourseId }, { refresh: true });
       for (const action of plan.actions) {
         if (completedActionIds.has(action.action_id)) continue;
         const unmetDependencies = (action.depends_on ?? [])
@@ -621,11 +665,14 @@ export class CourseSyncEngine {
           error.dependencies = unmetDependencies;
           throw error;
         }
-        this.stateStore.acquireLease(
+        if (!this.stateStore.acquireLease(
           plan.binding_id,
           executionOwner,
           new Date(Date.now() + 10 * 60 * 1000).toISOString()
-        );
+        )) {
+          throw new MoodleClientError('conflict', 'Synchronization lease was lost; no further actions will run.',
+            { reason: 'lease_lost', binding_id: plan.binding_id });
+        }
         const persistedJob = this.stateStore.getJob(job.job_id);
         if (persistedJob?.status === 'cancel_requested') {
           job.status = 'cancelled';
@@ -636,7 +683,7 @@ export class CourseSyncEngine {
         const context = {
           courseId: currentCourseId,
           createdEntities,
-          targetSiteUrl: plan.target.site_url,
+          targetSiteUrl: plan.target.site.site_url,
           mapping: plan.entity_mapping_snapshot
         };
         if (action.expected_target_digest) {
@@ -656,9 +703,9 @@ export class CourseSyncEngine {
         };
         job.results.push(activeResult);
         job.updated_at = new Date().toISOString();
-        this.stateStore.saveJob(job);
         const executableAction = resolveActionReferences(action, context);
         activeResult.resolved_fields = executableAction.fields;
+        this.stateStore.saveJob(job);
         let result;
         if (action.kind === 'module_asset.stage') {
           result = await withAssetMaterials(sourceAdapter, executableAction.assets, (materials) =>
@@ -699,6 +746,9 @@ export class CourseSyncEngine {
         }
         job.updated_at = new Date().toISOString();
         this.stateStore.saveJob(job);
+        if (action.kind === 'course.create') {
+          await preflightCapabilities(plan, targetAdapter, pendingActions(), { courseId: currentCourseId });
+        }
       }
       const verified = await targetAdapter.exportCourse(currentCourseId);
       const verificationFailures = verifyResults(plan, verified, job.results);

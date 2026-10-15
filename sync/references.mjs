@@ -51,6 +51,12 @@ function rewriteOne(value, context) {
     const sourceModule = context.modules.get(Number(url.searchParams.get('id')));
     if (!sourceModule) return { value, references: [], blocked: [{ url: value, reason: 'module_unresolved' }] };
     const chapter = context.chapters.get(Number(url.searchParams.get('chapterid')));
+    if (url.searchParams.has('chapterid') && !chapter) {
+      return { value, references: [], blocked: [{ url: value, reason: 'chapter_unresolved' }] };
+    }
+    if (chapter && chapter.module.source_id !== sourceModule.source_id) {
+      return { value, references: [], blocked: [{ url: value, reason: 'chapter_owner_mismatch' }] };
+    }
     const namespace = chapter ? 'chapters' : 'modules';
     const entity = chapter ?? sourceModule;
     const mappedId = context.mapping?.[namespace]?.[entity.sync_key];
@@ -59,6 +65,8 @@ function rewriteOne(value, context) {
       return {
         value: deferredUrl(namespace, entity.sync_key, {
           module_type: sourceModule.module_type,
+          original_query: JSON.stringify([...url.searchParams].filter(([name]) => name !== 'id' && name !== 'chapterid')),
+          fragment: url.hash,
           ...(chapter ? { module_key: sourceModule.sync_key } : {})
         }),
         references: [entity.sync_key, ...(chapter ? [sourceModule.sync_key] : [])],
@@ -121,6 +129,20 @@ export function rewriteMoodleHtmlReferences(html, options) {
     modules: modulesById(options.sourceModel),
     chapters: chaptersById(options.sourceModel)
   };
+  if (options.textFormat !== undefined && ![1, '1', 'html'].includes(options.textFormat)) {
+    // HTML serialization changes literal ampersands, tags and Markdown code.
+    // Preserve raw text; internal textual links need a format-specific rewriter.
+    const text = String(html ?? '');
+    const blocked = [];
+    for (const match of text.matchAll(/(?:https?:\/\/|\/(?:[\w.-]+\/)*(?:mod|course)\/)[^\s<>"'()[\]]+/giu)) {
+      const result = rewriteOne(match[0], context);
+      blocked.push(...result.blocked);
+      if (result.value !== match[0] || result.references.length > 0) {
+        blocked.push({ url: match[0], reason: 'non_html_internal_reference_unsupported' });
+      }
+    }
+    return { html: text, reference_source_keys: [], blocked };
+  }
   const fragment = parseFragment(String(html ?? ''));
   const references = [];
   const blocked = [];
@@ -161,6 +183,8 @@ export function resolveDeferredMoodleReferences(html, context) {
       const target = new URL(`${targetBasePath}/mod/${query.get('module_type')}/view.php`, context.targetSiteUrl);
       target.searchParams.set('id', String(moduleId));
       if (namespace === 'chapters') target.searchParams.set('chapterid', String(entityId));
+      for (const [name, value] of JSON.parse(query.get('original_query') ?? '[]')) target.searchParams.append(name, value);
+      target.hash = query.get('fragment') ?? '';
       return target.toString();
     });
 }

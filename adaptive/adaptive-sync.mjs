@@ -40,6 +40,7 @@ export class AdaptiveSyncAdapter extends AdaptiveMoodleAdapter {
 
   async syncCapabilities(context = {}) {
     if (!this.discovery) await this.discoverSite();
+    this.capabilityProviders.clear();
     const byProvider = {};
     for (const name of ['moodlia', 'core']) {
       if (!this.discovery.providers[name]?.available) continue;

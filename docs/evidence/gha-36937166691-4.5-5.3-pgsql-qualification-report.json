@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "run_id": "gha-36937166691-1",
+  "generated_at": "2026-10-01T22:52:17.037Z",
+  "node_version": "v24.21.0",
+  "package_versions": {
+    "moodlia_sync": "0.1.1",
+    "moodlia": "0.4.1",
+    "moodle_core_cli": "0.4.1"
+  },
+  "scenarios": [
+    {
+      "name": "core-to-core",
+      "source_release": "4.5.12 (Build: 20260608)",
+      "target_release": "5.3beta (Build: 20260916)",
+      "source_provider": "core",
+      "target_provider": "core",
+      "initial_action_count": 4,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "93f7f7db-cfa6-4905-af37-f093baccdd8e",
+      "repeat_action_count": 0,
+      "verified": true
+    },
+    {
+      "name": "core-to-moodlia",
+      "source_release": "4.5.12 (Build: 20260608)",
+      "target_release": "5.3beta (Build: 20260916)",
+      "source_provider": "core",
+      "target_provider": "moodlia",
+      "initial_action_count": 6,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add",
+        "section.create"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "e1a90b1a-62be-4075-9eb2-84dc33ee67b6",
+      "repeat_action_count": 0,
+      "verified": true
+    },
+    {
+      "name": "moodlia-to-core",
+      "source_release": "4.5.12 (Build: 20260608)",
+      "target_release": "5.3beta (Build: 20260916)",
+      "source_provider": "moodlia",
+      "target_provider": "core",
+      "initial_action_count": 4,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "d9ec0748-7432-4e20-b437-d4acff7cfbbc",
+      "repeat_action_count": 0,
+      "verified": true
+    },
+    {
+      "name": "moodlia-to-moodlia",
+      "source_release": "4.5.12 (Build: 20260608)",
+      "target_release": "5.3beta (Build: 20260916)",
+      "source_provider": "moodlia",
+      "target_provider": "moodlia",
+      "initial_action_count": 8,
+      "initial_action_kinds": [
+        "course.update",
+        "group.create",
+        "grouping.create",
+        "grouping.member.add",
+        "module.create",
+        "module_asset.stage",
+        "section.create"
+      ],
+      "skipped_count": 0,
+      "skipped_kinds": [],
+      "apply_status": "succeeded",
+      "job_id": "bd0f15f9-f573-49cd-b206-d855bba1cf08",
+      "repeat_action_count": 0,
+      "verified": true
+    }
+  ],
+  "rich_content": {
+    "module_name": "Portable Page á",
+    "asset_count": 2,
+    "nested_asset_verified": true,
+    "unicode_asset_verified": true,
+    "byte_hashes_match": true,
+    "pluginfile_references_preserved": true
+  },
+  "authoring": {
+    "schema_version": 1,
+    "phase": "verified",
+    "source_course_id": 5,
+    "target_course_id": 5,
+    "cases": [
+      {
+        "type": "page",
+        "format": "html",
+        "constant": 1,
+        "source_module_id": 6,
+        "target_module_id": 8,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "page",
+        "format": "plain",
+        "constant": 2,
+        "source_module_id": 7,
+        "target_module_id": 9,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "page",
+        "format": "markdown",
+        "constant": 4,
+        "source_module_id": 8,
+        "target_module_id": 10,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "page",
+        "format": "moodle",
+        "constant": 0,
+        "source_module_id": 9,
+        "target_module_id": 11,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "label",
+        "format": "html",
+        "constant": 1,
+        "source_module_id": 10,
+        "target_module_id": 12,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "label",
+        "format": "plain",
+        "constant": 2,
+        "source_module_id": 11,
+        "target_module_id": 13,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "label",
+        "format": "markdown",
+        "constant": 4,
+        "source_module_id": 12,
+        "target_module_id": 14,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "label",
+        "format": "moodle",
+        "constant": 0,
+        "source_module_id": 13,
+        "target_module_id": 15,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "url",
+        "format": "html",
+        "constant": 1,
+        "source_module_id": 14,
+        "target_module_id": 16,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "url",
+        "format": "plain",
+        "constant": 2,
+        "source_module_id": 15,
+        "target_module_id": 17,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "url",
+        "format": "markdown",
+        "constant": 4,
+        "source_module_id": 16,
+        "target_module_id": 18,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "url",
+        "format": "moodle",
+        "constant": 0,
+        "source_module_id": 17,
+        "target_module_id": 19,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "assign",
+        "format": "html",
+        "constant": 1,
+        "source_module_id": 18,
+        "target_module_id": 20,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "assign",
+        "format": "plain",
+        "constant": 2,
+        "source_module_id": 19,
+        "target_module_id": 21,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "assign",
+        "format": "markdown",
+        "constant": 4,
+        "source_module_id": 20,
+        "target_module_id": 22,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      },
+      {
+        "type": "assign",
+        "format": "moodle",
+        "constant": 0,
+        "source_module_id": 21,
+        "target_module_id": 23,
+        "text_verified": true,
+        "format_verified": true,
+        "asset_count": 2,
+        "byte_hashes_match": true
+      }
+    ],
+    "current_case": {
+      "type": "assign",
+      "format": "moodle",
+      "operation": "update_assignment",
+      "filename": "diagram ünicode.svg"
+    },
+    "source_summary": {
+      "source_id": 5,
+      "fullname": "Cross-version authoring qualification",
+      "shortname": "gha-36937166691-1-author-source",
+      "category_id": 1,
+      "idnumber": null,
+      "summary": "A &amp; B &lt;literal&gt;<br />\nPortable summary",
+      "summary_format": "plain",
+      "visible": false,
+      "start_date": 0,
+      "end_date": 0,
+      "field_states": {
+        "fullname": "present",
+        "shortname": "present",
+        "category_id": "present",
+        "idnumber": "unknown",
+        "summary": "present",
+        "summary_format": "present",
+        "visible": "present",
+        "start_date": "present",
+        "end_date": "present"
+      }
+    },
+    "summary_raw_guard_verified": true,
+    "source_read_diagnostics": [],
+    "assignment_strict_guard_verified": true,
+    "allowed_gaps": [
+      {
+        "degradable": true,
+        "kind": "assignment.settings",
+        "losses": [
+          "submission_plugin_configuration_not_exported"
+        ],
+        "reason": "selected_configuration_incomplete",
+        "source_key": "module:18",
+        "transformation": "assignment_selected_settings"
+      },
+      {
+        "degradable": true,
+        "kind": "assignment.settings",
+        "losses": [
+          "submission_plugin_configuration_not_exported"
+        ],
+        "reason": "selected_configuration_incomplete",
+        "source_key": "module:19",
+        "transformation": "assignment_selected_settings"
+      },
+      {
+        "degradable": true,
+        "kind": "assignment.settings",
+        "losses": [
+          "submission_plugin_configuration_not_exported"
+        ],
+        "reason": "selected_configuration_incomplete",
+        "source_key": "module:20",
+        "transformation": "assignment_selected_settings"
+      },
+      {
+        "degradable": true,
+        "kind": "assignment.settings",
+        "losses": [
+          "submission_plugin_configuration_not_exported"
+        ],
+        "reason": "selected_configuration_incomplete",
+        "source_key": "module:21",
+        "transformation": "assignment_selected_settings"
+      }
+    ],
+    "assignment_transformation": "assignment_selected_settings",
+    "summary_format_verified": true,
+    "repeat_action_count": 0,
+    "source_site": {
+      "provider": "adaptive",
+      "profile": "m45plugin",
+      "site_url": "http://127.0.0.1:18451",
+      "moodle_version": "2024100712",
+      "plugin_version": "2026100200",
+      "selected_provider": "moodlia"
+    },
+    "target_site": {
+      "provider": "adaptive",
+      "profile": "m53plugin",
+      "site_url": "http://127.0.0.1:18531",
+      "moodle_version": "2026091600",
+      "plugin_version": "2026100200",
+      "selected_provider": "moodlia"
+    }
+  }
+}

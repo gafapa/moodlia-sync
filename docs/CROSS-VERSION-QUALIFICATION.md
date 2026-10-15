@@ -2,7 +2,7 @@
 
 ## Scope
 
-The release suite evaluates the five supported Moodle branches (`4.5`, `5.0`, `5.1`, `5.2`, and `5.3`) in every source-to-target direction and through all four provider pairings:
+The logical suite enumerates five Moodle branch labels (`4.5`, `5.0`, `5.1`, `5.2`, and `5.3`) in every source-to-target direction and through all four provider pairings:
 
 - Core to Core
 - Core to MoodlIA
@@ -10,6 +10,32 @@ The release suite evaluates the five supported Moodle branches (`4.5`, `5.0`, `5
 - MoodlIA to MoodlIA
 
 This produces 100 logical scenarios. `tests/version-matrix.test.mjs` validates every immutable plan, preserves source and target version evidence, checks provider-specific capability outcomes, and rejects any plan containing backup, restore, course-copy, or `.mbz` transport markers.
+
+The fixtures reuse the same capabilities for each branch label. They do not
+load the real branch schemas or execute Moodle, and therefore do not qualify
+cross-version authoring compatibility. `tests/cross-version-formats.test.mjs`
+adds asymmetric create/update capability tests, legacy destination format gaps,
+course-summary preservation and guards for creation paths that force HTML.
+These are regression checks, not additional live branch qualification.
+
+`tests/publication-roundtrip.test.mjs` exercises the planner, engine and real
+MoodlIA adapter against a stateful remote stand-in that reproduces HTML-forcing
+creation. It covers 32 four-format activity cases in both endpoint directions,
+plus 16 legacy-plugin cases, readback and converged re-planning. Unsupported
+legacy formats produce no writes. The stand-in is not a real Moodle branch;
+the direction labels do not qualify branch-specific schemas or permissions.
+
+`tests/dependency-roundtrip.test.mjs` checks forward-link creation order,
+subdirectory-aware deferred URLs, preserved parameters/fragments, durable
+resolved intents, readback and a converged re-plan. New cyclic and self-linked
+definitions stay blocked; they are not a demonstrated transfer capability.
+The engine recovery regressions cover process interruption, unknown drafts,
+publication parent identities and a lost lease before subsequent writes.
+
+The test-lab weekly workflow schedules all 25 branch directions. A scheduled
+matrix is not evidence that every job passed, nor proof for content types absent
+from the live fixture. The archived runs below cover a narrower fixture and
+must not be generalized to all activities or text formats.
 
 ## Expected outcomes
 
@@ -35,6 +61,48 @@ The logical matrix complements rather than replaces the other release evidence:
 No production synchronization or plugin deployment is part of this qualification.
 
 ## Disposable live qualification
+
+### 2026-10-02 qualification of unreleased changes
+
+[Run 36937166691](https://github.com/gafapa/moodlia-sync/actions/runs/36937166691)
+passed Moodle 4.5.12 to 5.3 beta and the reverse direction, each on SQLite and
+PostgreSQL. Every combination passed the four provider fixtures and a separate
+16-case MoodlIA authoring fixture: Page, Label, URL and Assignment, each in HTML,
+plain text, Markdown and Moodle format. Readback preserved text and format, and
+32 owned files per combination retained Unicode names, nested paths and SHA-256
+digests. Every unchanged re-plan contained zero actions. Four direction/database
+reports are archived in `docs/evidence/gha-36937166691-*-qualification-report.json`.
+
+This tested a branch-built artifact, not the published `moodlia-sync@0.1.1`:
+
+- Sync and runner commit: `47f6c2ed8c0b12f448259e2378d675a741447dfa`.
+- Package SHA-256: `efcef4eddbf15197f0f8b002bba96e255dbc02b7404833953e3fecaa75a7ebd7`.
+- Plugin commit: `765834aa2cdb0c325c6fe5d064febfd6de808b0f`, including original-text
+  Page/Label/URL readers. Its version label alone does not identify these changes.
+- Lab commit: `9b0d15e4df19c4df4490dda78c08bd0fa609d8eb`, with explicit SQLite plugin overlays.
+- Dependencies: `moodlia@0.4.1` and `moodle-core-cli@0.4.1`.
+
+The authoring fixture first proved that strict planning blocks a non-HTML course
+summary without raw text, and blocks incomplete Assignment plugin configuration.
+It then used an HTML course summary and allowed only the four declared
+`assignment_selected_settings` transformations. No authored module was skipped.
+This establishes selected Assignment text/file fidelity, not complete plugin
+configuration fidelity. Core provider fixtures use the existing explicit-gap
+policy and do not establish Core content-authoring parity.
+
+Live testing also found invalid legacy introduction-file URLs and invalid
+module-grade-item range updates. The sync branch normalizes those file routes
+against their owned paths and keeps grade ranges in the owning activity's
+creation settings. Unsupported range updates remain blocking.
+
+The earlier general plugin-suite failures were resolved in subsequent plugin
+revisions. Full run [36942721255](https://github.com/gafapa/moodle-local_moodlia/actions/runs/36942721255)
+passed ten Moodle 4.5–5.3 beta PHP/database profiles, including native PHPUnit,
+independent REST requests and static checks. Run
+[36943122019](https://github.com/gafapa/moodle-local_moodlia/actions/runs/36943122019)
+also passed at plugin commit `2a58ca4`. The synchronization qualification above
+uses an earlier plugin commit; these results must retain their separate
+provenance. See `docs/evidence/2026-10-02-plugin-suite-findings.md`.
 
 Since `moodlia-sync` 0.1.0 the live qualification runs on GitHub Actions with the golden images of [gafapa/moodlia-test-lab](https://github.com/gafapa/moodlia-test-lab) (`qualify.yml`): four disposable SQLite sites (Core and MoodlIA on the source and target branches), the published npm packages, and plan, approve, apply, verify, and an unchanged re-plan for each provider pairing.
 

@@ -1385,9 +1385,10 @@ test('new courses preserve root manual and module grade items', () => {
     provider: 'moodlia', siteUrl: 'https://source.example', courseId: 7,
     fullname: 'Course', shortname: 'COURSE', sections: [{
       id: 10, section: 0, name: 'General', modules: [{
-        id: 20, modname: 'page', name: 'Page', visible: true,
+        id: 20, modname: 'assign', name: 'Assignment', visible: true,
         authoring_completeness: 'complete',
-        authoring: { kind: 'page', settings: { content: '<p>Read.</p>', content_format: 1 }, files: [] }
+        authoring: { kind: 'assignment', settings: { grade: 100 },
+          content: { intro: '', intro_format: 1, activity: '', activity_format: 1 }, losses: [] }
       }]
     }],
     gradebook: { losses: [], items: [{
@@ -1416,6 +1417,7 @@ test('new courses preserve root manual and module grade items', () => {
   ]);
   assert.ok(plan.actions[4].depends_on.includes(plan.actions[2].action_id));
   assert.equal(plan.actions[4].module_source_key, 'module:20');
+  assert.deepEqual(plan.actions[4].fields, { grade_pass: 80, hidden: false, locked: false });
 });
 
 test('new Workshops preserve rubric definitions with more than four levels', () => {

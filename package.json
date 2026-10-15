@@ -1,6 +1,6 @@
 {
   "name": "moodlia-sync",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Plan, approve, apply, and verify Moodle course synchronization between sites without backups.",
   "type": "module",
   "license": "GPL-3.0-or-later",
