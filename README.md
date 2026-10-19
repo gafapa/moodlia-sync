@@ -112,9 +112,9 @@ See [docs/SYNC-ARCHITECTURE.md](docs/SYNC-ARCHITECTURE.md) and
 
 ## Package layout
 
-`moodlia-sync` depends only on `moodlia`, which depends on `moodle-core-cli`.
-It extends their discovery adapters with synchronization and is the only
-package in the chain with a native dependency.
+`moodlia-sync` depends on `moodlia` for provider adapters, `parse5` for portable HTML/reference handling, and `better-sqlite3` for durable state. `moodlia` depends on `moodle-core-cli`. Sync extends their discovery adapters and is the only package in this chain with a native dependency.
+
+For the archived MCP coordinator, see [Migrating from Sync MCP](docs/MIGRATING-FROM-SYNC-MCP.md). Its old approval examples target legacy 0.3 dependencies, not the current `moodlia` CLI.
 
 ## Migrating from `moodlia` 0.3 and `moodle-core-cli` 0.3
 
