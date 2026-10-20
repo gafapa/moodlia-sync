@@ -3,3 +3,4 @@ node_modules/
 .moodle-profiles.json
 *.tgz
 coverage/
+/.project-pages/

@@ -5,7 +5,33 @@ evidence recorded in `docs/CROSS-VERSION-QUALIFICATION.md` (run
 `release037-core036-final`, 2026-09-22). It is development tooling and is not
 part of the published npm package.
 
-## What it provisions
+## Status
+
+Dated development harness for the 2026-09-22 qualification record. It is not part of the published npm package and does not establish qualification of later Moodle or package versions.
+
+## Getting started
+
+### Running it
+
+1. Copy this directory to an isolated Docker host and run `remote-setup.sh`
+   after adjusting `lab_root` and `plugin_commit`.
+2. `docker compose -p <project> up -d` and wait until all four containers report
+   `healthy` (first boot installs Moodle and takes several minutes).
+3. Run `bootstrap.php <profile> <core|moodlia> <source|target>` in each
+   container and store the JSON output as `results/<profile>.json`.
+4. Install the package under test in `runner/` (`npm install moodlia-sync@<version>`
+   or a local tarball) and run
+   `QUALIFICATION_RUN_ID=<id> node runner/run-qualification.mjs` with the
+   staging directory mounted at `/qualification`.
+5. Archive `results/<id>-qualification-report.json`, then remove the containers,
+   volumes, network, and the staging directory. The directory contains tokens
+   and must not be kept.
+
+Never point this harness at a persistent Moodle service.
+
+## Usage
+
+### What it provisions
 
 - `compose.yaml`: four throwaway Moodle sites bound to loopback ports
   (`18450`/`18451` for Moodle 4.5.12, `18530`/`18531` for Moodle 5.3 beta),
@@ -24,25 +50,13 @@ part of the published npm package.
   remaining `runner/*.mjs` files are inspection helpers used while diagnosing
   failures.
 
-## Running it
+## Development
 
-1. Copy this directory to an isolated Docker host and run `remote-setup.sh`
-   after adjusting `lab_root` and `plugin_commit`.
-2. `docker compose -p <project> up -d` and wait until all four containers report
-   `healthy` (first boot installs Moodle and takes several minutes).
-3. Run `bootstrap.php <profile> <core|moodlia> <source|target>` in each
-   container and store the JSON output as `results/<profile>.json`.
-4. Install the package under test in `runner/` (`npm install moodlia-sync@<version>`
-   or a local tarball) and run
-   `QUALIFICATION_RUN_ID=<id> node runner/run-qualification.mjs` with the
-   staging directory mounted at `/qualification`.
-5. Archive `results/<id>-qualification-report.json`, then remove the containers,
-   volumes, network, and the staging directory. The directory contains tokens
-   and must not be kept.
+The runner executes real synchronization writes against disposable fixtures. Preserve the exact package/plugin references and archive the resulting reports before teardown. Prefer the current Test Lab workflow for matrix runs.
 
-Never point this harness at a persistent Moodle service.
+## Security and privacy
 
-## Shared-host limits
+### Shared-host limits
 
 Each site is capped at 768 MiB and 0.75 CPU and labelled `moodlia-lab`, and
 `remote-setup.sh` refuses to start with less than 3 GiB of available memory,
@@ -50,3 +64,11 @@ so the lab cannot push a shared production host into the out-of-memory
 killer. After the run, remove lab images with
 `docker image prune --filter label=moodlia-lab`. The preferred place for the
 full matrix is GitHub Actions with the golden images from `moodlia-test-lab`.
+
+## Documentation
+
+See the [Sync README](../../README.md), [dated qualification evidence](../../docs/CROSS-VERSION-QUALIFICATION.md), and [Test Lab](https://github.com/gafapa/moodlia-test-lab). Paths such as `docs/CROSS-VERSION-QUALIFICATION.md` in the introduction are relative to the Sync repository root.
+
+## License
+
+Part of MoodlIA Sync, licensed under GPL-3.0-or-later. See [LICENSE](../../LICENSE).

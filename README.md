@@ -1,4 +1,4 @@
-# moodlia-sync
+# MoodlIA Sync
 
 Synchronize supported course content between Moodle sites without backups.
 `moodlia-sync` reads a source course, writes an immutable plan of the changes
@@ -16,7 +16,15 @@ capabilities verified for a destination. The logical version matrix is not a
 live compatibility guarantee. See [docs/CROSS-VERSION-REVIEW.md](docs/CROSS-VERSION-REVIEW.md)
 for format guards, remaining gaps and qualification requirements.
 
-## Install
+[Status](#status) · [Getting started](#getting-started) · [Usage](#usage) · [Development](#development) · [Security and privacy](#security-and-privacy) · [Documentation](#documentation) · [License](#license)
+
+## Status
+
+Preview CLI and library. Package version: `0.1.2`. Supported content families and exact provider pairings are defined by the capability matrix and dated qualification evidence, not by a blanket version claim.
+
+## Getting started
+
+### Install
 
 ```sh
 npm install -g moodlia-sync
@@ -34,7 +42,7 @@ npm rebuild better-sqlite3
 Without the driver, commands fail with `dependency_unavailable` and print the
 same fix.
 
-## Profiles
+### Profiles
 
 Sites are described in `.moodle-profiles.json`. Tokens stay in environment
 variables and are never written to plans or state:
@@ -55,7 +63,9 @@ variables and are never written to plans or state:
 }
 ```
 
-## Workflow
+## Usage
+
+### Workflow
 
 ```sh
 # 1. Inspect what each site can do.
@@ -87,7 +97,46 @@ Every command prints JSON. Exit codes: 0 success, 1 internal, 2 validation,
 3 capability gap, 4 conflict, 5 remote failure, 6 partial execution,
 7 verification failure.
 
-## Safety model
+### Migrating from `moodlia` 0.3 and `moodle-core-cli` 0.3
+
+| Before | Now |
+| --- | --- |
+| `moodlia course sync --source-profile ... --plan-file p.json` | `moodlia-sync plan --source-profile ... --plan-file p.json` |
+| `moodlia course sync --approve-plan p.json --yes` | `moodlia-sync approve p.json --yes` |
+| `moodlia course sync --apply-plan p.json --plan-digest D --allow-write` | `moodlia-sync approve p.json --yes` then `moodlia-sync apply p.json --plan-digest D --allow-write` |
+| `moodlia sync status --job-id J` | `moodlia-sync status --job-id J` |
+| `moodlia sync resume --job-id J --plan-digest D --allow-write` | `moodlia-sync resume --job-id J --plan-digest D --allow-write --approve --yes` |
+| `moodlia sync verify --plan-id P` | `moodlia-sync verify --plan-id P` |
+| `moodlia sync history` / `cancel` | `moodlia-sync history` / `cancel --job-id J` |
+| `moodlia-sync-mcp` tools | the commands above |
+
+State databases created by `moodlia` 0.3 or `moodle-core-cli` 0.3 open unchanged.
+
+## Development
+
+### Package layout
+
+`moodlia-sync` depends on `moodlia` for provider adapters, `parse5` for portable HTML/reference handling, and `better-sqlite3` for durable state. `moodlia` depends on `moodle-core-cli`. Sync extends their discovery adapters and is the only package in this chain with a native dependency.
+
+For the archived MCP coordinator, see [Migrating from Sync MCP](docs/MIGRATING-FROM-SYNC-MCP.md). Its old approval examples target legacy 0.3 dependencies, not the current `moodlia` CLI.
+
+```sh
+npm ci
+npm run check
+npm run test:coverage
+```
+
+The test suite needs no other repository: it runs against the published
+`moodlia` and `moodle-core-cli` in `package-lock.json`. CI runs it on this
+repository alone (`check`: Linux and Windows with Node 22.13 and 24, plus macOS
+arm64), and again in `siblings` against the `moodlia-cli` and `moodle-core-cli`
+sources (the branch with the same name when it exists, otherwise `main`). Live
+cross-version qualification against real Moodle sites runs from
+`moodlia-test-lab`; see `docs/CROSS-VERSION-QUALIFICATION.md`.
+
+## Security and privacy
+
+### Safety model
 
 - Planning performs reads only.
 - Applying requires a saved plan whose digest matches, an unexpired and
@@ -110,42 +159,20 @@ Every command prints JSON. Exit codes: 0 success, 1 internal, 2 validation,
 See [docs/SYNC-ARCHITECTURE.md](docs/SYNC-ARCHITECTURE.md) and
 [docs/ADR-001-SYNC-FOUNDATION.md](docs/ADR-001-SYNC-FOUNDATION.md).
 
-## Package layout
+## Documentation
 
-`moodlia-sync` depends on `moodlia` for provider adapters, `parse5` for portable HTML/reference handling, and `better-sqlite3` for durable state. `moodlia` depends on `moodle-core-cli`. Sync extends their discovery adapters and is the only package in this chain with a native dependency.
+- [Project Pages](https://gafapa.github.io/moodlia-sync/)
 
-For the archived MCP coordinator, see [Migrating from Sync MCP](docs/MIGRATING-FROM-SYNC-MCP.md). Its old approval examples target legacy 0.3 dependencies, not the current `moodlia` CLI.
+Build the repository documentation portal with `python tools/build-project-page.py`. Its status comes from this README; purpose and first steps are maintained in `docs/project-page.json`. The `pages.yml` workflow publishes the portal without deploying the application or changing `moodlia.com`.
 
-## Migrating from `moodlia` 0.3 and `moodle-core-cli` 0.3
+Adds reviewed course synchronization to [MoodlIA CLI](https://github.com/gafapa/moodlia-cli) and [Moodle Core CLI](https://github.com/gafapa/moodle-core-cli).
 
-| Before | Now |
-| --- | --- |
-| `moodlia course sync --source-profile ... --plan-file p.json` | `moodlia-sync plan --source-profile ... --plan-file p.json` |
-| `moodlia course sync --approve-plan p.json --yes` | `moodlia-sync approve p.json --yes` |
-| `moodlia course sync --apply-plan p.json --plan-digest D --allow-write` | `moodlia-sync approve p.json --yes` then `moodlia-sync apply p.json --plan-digest D --allow-write` |
-| `moodlia sync status --job-id J` | `moodlia-sync status --job-id J` |
-| `moodlia sync resume --job-id J --plan-digest D --allow-write` | `moodlia-sync resume --job-id J --plan-digest D --allow-write --approve --yes` |
-| `moodlia sync verify --plan-id P` | `moodlia-sync verify --plan-id P` |
-| `moodlia sync history` / `cancel` | `moodlia-sync history` / `cancel --job-id J` |
-| `moodlia-sync-mcp` tools | the commands above |
-
-State databases created by `moodlia` 0.3 or `moodle-core-cli` 0.3 open unchanged.
-
-## Development
-
-```sh
-npm ci
-npm run check
-npm run test:coverage
-```
-
-The test suite needs no other repository: it runs against the published
-`moodlia` and `moodle-core-cli` in `package-lock.json`. CI runs it on this
-repository alone (`check`: Linux and Windows with Node 22.13 and 24, plus macOS
-arm64), and again in `siblings` against the `moodlia-cli` and `moodle-core-cli`
-sources (the branch with the same name when it exists, otherwise `main`). Live
-cross-version qualification against real Moodle sites runs from
-`moodlia-test-lab`; see `docs/CROSS-VERSION-QUALIFICATION.md`.
+- [Source code](https://github.com/gafapa/moodlia-sync)
+- [Issue tracker](https://github.com/gafapa/moodlia-sync/issues)
+- [MoodlIA website](https://moodlia.com)
+- [docs/SYNC-CAPABILITY-MATRIX.md](docs/SYNC-CAPABILITY-MATRIX.md)
+- [docs/CROSS-VERSION-QUALIFICATION.md](docs/CROSS-VERSION-QUALIFICATION.md)
+- [docs/MIGRATING-FROM-SYNC-MCP.md](docs/MIGRATING-FROM-SYNC-MCP.md)
 
 ## License
 
