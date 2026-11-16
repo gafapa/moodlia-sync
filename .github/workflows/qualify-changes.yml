@@ -25,6 +25,7 @@ jobs:
           sha256sum moodlia-sync-*.tgz >> qualification-provenance.txt
       - uses: actions/upload-artifact@v4
         with:
+          retention-days: 14
           name: moodlia-sync-under-test
           path: |
             moodlia-sync-*.tgz
