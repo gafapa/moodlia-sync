@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -25,11 +28,13 @@ jobs:
           - os: macos-latest
             node: '24'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+          cache: npm
       - run: npm ci
       - run: npm rebuild better-sqlite3
       - run: npm run check
@@ -41,6 +46,7 @@ jobs:
   # exists, otherwise main, so coordinated changes are tested together.
   siblings:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,6 +75,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            moodle-core-cli/package-lock.json
+            moodlia-cli/package-lock.json
+            moodlia-sync/package-lock.json
       - name: Install Core from source
         working-directory: moodle-core-cli
         run: npm ci
